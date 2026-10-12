@@ -3,7 +3,7 @@
 Next.js App Router project for the Prevost tracking platform. Stack so far:
 
 - **Next.js 16** + **React 19** + **TypeScript** (strict)
-- **Tailwind CSS v4** + **shadcn/ui** (`base-nova`, Base UI)
+- **IBM Carbon** (`@carbon/react`, Prévost theme) + **Tailwind CSS v4** for layout utilities
 - **Prisma ORM 7** + **PostgreSQL 18** (Docker Compose)
 - **better-auth** (email/password, Prisma adapter)
 - **TanStack Query v5** + **TanStack Table v9** + **TanStack Store**
@@ -69,10 +69,8 @@ src/
   app/                 # App Router pages & API routes
   app/api/auth/        # better-auth catch-all handler
   components/
-    data-table/        # Pagination UI for TanStack Table
+    data-table/        # Carbon pagination for TanStack Table
     providers/         # QueryProvider
-    ui/                # shadcn/ui components
-  hooks/
   lib/
     auth.ts
     auth-client.ts
@@ -80,13 +78,11 @@ src/
     pagination.ts      # Zod list/pagination schemas + PaginatedResult
     prisma.ts
     query-keys.ts      # TanStack Query key factory
-    utils.ts
 prisma/
 docker-compose.yml
 prisma7.config.ts
 eslint.config.mjs
 prettier.config.mjs
-components.json
 ```
 
 ## Conventions (required)
@@ -126,13 +122,13 @@ const initial = await listExamples({ pageIndex: 0, pageSize: 10, sorting: [] });
 
 Optional: hydrate with `useQuery({ ..., initialData: initial })` from an RSC.
 
-### List / table pagination (TanStack Table v9 + shadcn)
+### List / table pagination (TanStack Table v9 + Carbon)
 
 Follow TanStack Table **v9** APIs (`useTable`, `tableFeatures`, feature plugins)—not the v8 `useReactTable` API.
 
 1. Every table uses `@tanstack/react-table` with `manualPagination: true` (and `manualSorting: true` when sorting is server-side).
 2. Register features via `dataTableFeatures` in `src/lib/data-table.ts` (pagination + sorting), or extend that set.
-3. Every table (and other long paged lists) must render **shadcn Pagination** through `DataTablePagination` (`src/components/data-table/data-table-pagination.tsx`) or an equivalent built from `@/components/ui/pagination`.
+3. Every table (and other long paged lists) must render **Carbon Pagination** through `DataTablePagination` (`src/components/data-table/data-table-pagination.tsx`). Its page sizes come from `pageSizeOptions` in `src/lib/pagination.ts`, which also caps `pageSize` on the server.
 4. List server actions accept TanStack-aligned input and return `PaginatedResult<T>`:
 
 | Field | Meaning |
@@ -195,17 +191,11 @@ function ExamplesTable() {
 
   return (
     <>
-      {/* render with table.getHeaderGroups() / getRowModel() + table.FlexRender */}
+      {/* render Carbon Table / TableHead / TableRow / TableCell from table.getHeaderGroups() / getRowModel() + table.FlexRender */}
       <DataTablePagination
-        pageIndex={table.state.pagination.pageIndex}
-        pageSize={table.state.pagination.pageSize}
-        pageCount={table.getPageCount()}
+        pagination={table.state.pagination}
         rowCount={table.getRowCount()}
-        canPreviousPage={table.getCanPreviousPage()}
-        canNextPage={table.getCanNextPage()}
-        onPreviousPage={() => table.previousPage()}
-        onNextPage={() => table.nextPage()}
-        onPageIndexChange={(pageIndex) => table.setPageIndex(pageIndex)}
+        onPaginationChange={table.setPagination}
       />
     </>
   );
@@ -218,7 +208,7 @@ Do **not** copy query rows into a separate `useState`—feed `data?.items ?? emp
 
 1. Always define a **Zod** schema for form values.
 2. Always use **react-hook-form** with `@hookform/resolvers/zod` (`zodResolver`).
-3. Prefer shadcn **Field** / form primitives under `src/components/ui/` for layout and a11y.
+3. Use Carbon form components (`TextInput`, `Select`, `Form`, …) from `@carbon/react`; pass `invalid` / `invalidText` from the react-hook-form field state.
 4. Submit through `useMutation` → server action (do not bypass TanStack Query for writes).
 5. Re-validate the same shape on the server action with Zod before touching the DB.
 
@@ -279,17 +269,19 @@ export function ExampleForm() {
 - API route: `src/app/api/auth/[...all]/route.ts`.
 - Auth tables (`user`, `session`, `account`, `verification`) are in the Prisma schema / migrations.
 
-### UI (shadcn + Tailwind v4)
+### UI (IBM Carbon + Tailwind v4)
 
-- Style preset: `base-nova` (see `components.json`).
-- Theme tokens and Tailwind entry: `src/app/globals.css`.
-- Full shadcn component set under `src/components/ui/`.
-- Tables: `@/components/ui/table` + TanStack Table v9 + `DataTablePagination`.
+- Components come from `@carbon/react`, imported directly in client components (Carbon files carry no `"use client"`, so Server Components cannot render them). There is no wrapper layer.
+- Theme: `src/app/carbon.scss` (Carbon Gray 10 + Prévost orange `#FBB727` on primary buttons with Gray 100 text). It loads only the styles of components the app uses, so add `components/<name>` to `src/app/_carbon-components.scss` when you use a new Carbon component.
+- Fonts: IBM Plex Sans / Mono through `next/font` in `src/app/layout.tsx`; Carbon reads them via `--font-plex-sans` / `--font-plex-mono`.
+- Tailwind is the layout utility layer. `src/app/globals.css` maps its colours to Carbon tokens (`bg-layer`, `text-text-secondary`, `border-border-subtle`, …) and orders the cascade layers so utilities win over Carbon styles.
+- Tables: Carbon `Table*` components + TanStack Table v9 + `DataTablePagination`.
+- `@carbon/react` depends on `@ibm/telemetry-js`. Its postinstall does not run here because pnpm only runs build scripts listed in `onlyBuiltDependencies`; keep it off that list, and set `IBM_TELEMETRY_DISABLED=true` in CI and container environments.
 
 ### Lint & format
 
-- **ESLint**: Next `core-web-vitals` + TypeScript, plus `typescript-eslint` strict and a small custom rule set. Formatting rules are disabled via `eslint-config-prettier`. shadcn UI paths are relaxed so regenerated components don’t fail CI-style checks.
-- **Prettier**: `prettier.config.mjs` with `prettier-plugin-tailwindcss` (stylesheet: `src/app/globals.css`; class helpers: `cn`, `cva`).
+- **ESLint**: Next `core-web-vitals` + TypeScript, plus `typescript-eslint` strict and a small custom rule set. Formatting rules are disabled via `eslint-config-prettier`.
+- **Prettier**: `prettier.config.mjs` with `prettier-plugin-tailwindcss` (stylesheet: `src/app/globals.css`).
 - **EditorConfig**: `.editorconfig` aligns indent/EOL with Prettier.
 
 ```bash
@@ -305,6 +297,7 @@ pnpm format:check
 4. shadcn/ui component install
 5. ESLint policy + Prettier setup
 6. TanStack Query/Table, Zod, react-hook-form, server-action + pagination conventions
+7. IBM Carbon replaces shadcn/ui
 
 ## Learn more
 
@@ -315,5 +308,5 @@ pnpm format:check
 - [TanStack Table](https://tanstack.com/table/latest) (v9: `useTable` / features)
 - [Zod](https://zod.dev)
 - [react-hook-form](https://react-hook-form.com)
-- [shadcn/ui](https://ui.shadcn.com)
+- [Carbon Design System](https://carbondesignsystem.com) / [`@carbon/react`](https://react.carbondesignsystem.com)
 - [Tailwind CSS v4](https://tailwindcss.com/docs)

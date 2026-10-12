@@ -1,0 +1,10 @@
+// The Carbon styles the app renders. carbon.scss loads this module once, inside the
+// `carbon` cascade layer, so shared dependencies (button, tooltip, …) are emitted once
+// and in dependency order. One meta.load-css per component would emit them again for
+// every component, and the last copy would override component-specific rules.
+//
+// When a feature starts using a new Carbon component, add its `components/<name>` here.
+
+@use "@carbon/react/scss/reset";
+@use "@carbon/react/scss/layout";
+@use "@carbon/react/scss/components/pagination";

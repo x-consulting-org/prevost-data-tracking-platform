@@ -1,0 +1,61 @@
+// IBM Carbon styles with the Prévost theme: Carbon Gray 10 (grey page, white
+// surfaces) plus the logo orange as the primary action colour. Only the styles
+// of components the app renders are loaded, listed in `_carbon-components.scss`.
+//
+// Everything is emitted into the `carbon` cascade layer (ordered in globals.css)
+// so Tailwind utilities can still lay out and adjust Carbon markup.
+
+@use "sass:color";
+@use "sass:meta";
+@use "sass:string";
+
+$-prevost-orange: #fbb727;
+$-prevost-orange-hover: color.scale($-prevost-orange, $lightness: -12%);
+$-prevost-orange-active: color.scale($-prevost-orange, $lightness: -24%);
+
+// IBM Plex is self-hosted by next/font (see layout.tsx), so Carbon must not
+// emit its own @font-face rules and must use the next/font family variables.
+@use "@carbon/react/scss/config" with (
+  $css--font-face: false
+);
+@use "@carbon/react/scss/type" with (
+  $font-families: (
+    "sans": string.unquote("var(--font-plex-sans), system-ui, sans-serif"),
+    "mono": string.unquote("var(--font-plex-mono), ui-monospace, monospace"),
+  )
+);
+@use "@carbon/react/scss/themes";
+@use "@carbon/react/scss/theme" with (
+  $theme: themes.$g10
+);
+@use "@carbon/react/scss/colors";
+@use "@carbon/react/scss/components/button/tokens" with (
+  $button-primary: (
+    fallback: $-prevost-orange,
+    values: [(theme: themes.$g10, value: $-prevost-orange)],
+  ),
+  $button-primary-hover: (
+    fallback: $-prevost-orange-hover,
+    values: [(theme: themes.$g10, value: $-prevost-orange-hover)],
+  ),
+  $button-primary-active: (
+    fallback: $-prevost-orange-active,
+    values: [(theme: themes.$g10, value: $-prevost-orange-active)],
+  )
+);
+
+@layer carbon {
+  @include meta.load-css("carbon-components");
+
+  // Emitted after the components so their component tokens (button) are registered.
+  :root {
+    @include theme.theme();
+  }
+
+  // White text on the orange is ~1.8:1; Gray 100 keeps primary buttons above 6:1
+  // in every state without changing `text-on-color` for other components.
+  .cds--btn--primary {
+    --cds-text-on-color: #{colors.$gray-100};
+    --cds-icon-on-color: #{colors.$gray-100};
+  }
+}

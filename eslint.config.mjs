@@ -59,21 +59,6 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    // shadcn/ui (and its companion hooks) are regenerated often — don't block on their idioms.
-    files: ["src/components/ui/**/*.{ts,tsx}", "src/hooks/use-mobile.ts"],
-    rules: {
-      eqeqeq: "off",
-      "object-shorthand": "off",
-      "prefer-template": "off",
-      "react/no-danger": "off",
-      "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-non-null-assertion": "off",
-      "@typescript-eslint/consistent-type-imports": "off",
-      "@typescript-eslint/no-import-type-side-effects": "off",
-      "react-hooks/set-state-in-effect": "off",
-    },
-  },
-  {
     // Config / tooling files: keep lint light.
     files: [
       "*.config.{js,mjs,cjs,ts,mts,cts}",

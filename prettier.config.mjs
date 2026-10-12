@@ -6,7 +6,7 @@
  * @type {import("prettier").Config & import("prettier-plugin-tailwindcss").PluginOptions}
  */
 const config = {
-  // Match existing Next/shadcn style in this repo.
+  // Match existing Next style in this repo.
   semi: true,
   singleQuote: false,
   trailingComma: "all",
@@ -23,7 +23,6 @@ const config = {
   plugins: ["prettier-plugin-tailwindcss"],
   // Tailwind CSS v4: point at the stylesheet that loads theme/utilities.
   tailwindStylesheet: "./src/app/globals.css",
-  tailwindFunctions: ["cn", "cva"],
 };
 
 export default config;
