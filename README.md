@@ -78,12 +78,12 @@ src/
   app/                 # App Router pages & API routes
   app/api/auth/        # better-auth catch-all handler
   components/
-    data-table/        # Carbon pagination for TanStack Table
+    data-table/        # Carbon pagination, column fitting and resizing for TanStack Table
     providers/         # QueryProvider
   lib/
     auth.ts
     auth-client.ts
-    data-table.ts      # Shared TanStack Table v9 feature set
+    data-table.ts      # Shared TanStack Table v9 features and column rules
     pagination.ts      # Zod list/pagination schemas + PaginatedResult
     prisma.ts
     query-keys.ts      # TanStack Query key factory
@@ -151,66 +151,10 @@ Follow TanStack Table **v9** APIs (`useTable`, `tableFeatures`, feature plugins)
 | `pageCount` | derived page count |
 
 Helpers: `src/lib/pagination.ts` (`listQueryInputSchema`, `toSkipTake`, `toPaginatedResult`).  
-Reference action: `listShipmentsPage` in `src/actions/shipments.ts`.
+Reference: `listShipmentsPage` in `src/actions/shipments.ts`, rendered by `ShipmentsTable` in `src/components/shipments/shipments-table.tsx`.
 
-```tsx
-"use client";
-
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useCreateAtom, useSelector } from "@tanstack/react-store";
-import {
-  createColumnHelper,
-  useTable,
-  type PaginationState,
-  type SortingState,
-} from "@tanstack/react-table";
-import { listExamples } from "@/actions/example";
-import { DataTablePagination } from "@/components/data-table/data-table-pagination";
-import { dataTableFeatures } from "@/lib/data-table";
-import { queryKeys } from "@/lib/query-keys";
-
-const helper = createColumnHelper<typeof dataTableFeatures, ExampleItem>();
-const columns = helper.columns([helper.accessor("name", { header: "Name" })]);
-const emptyRows: ExampleItem[] = [];
-
-function ExamplesTable() {
-  const paginationAtom = useCreateAtom<PaginationState>({
-    pageIndex: 0,
-    pageSize: 10,
-  });
-  const sortingAtom = useCreateAtom<SortingState>([]);
-  const pagination = useSelector(paginationAtom, (v) => v);
-  const sorting = useSelector(sortingAtom, (v) => v);
-
-  const listInput = { ...pagination, sorting };
-  const { data } = useQuery({
-    queryKey: queryKeys.example.list(listInput),
-    queryFn: () => listExamples(listInput),
-    placeholderData: keepPreviousData,
-  });
-
-  const table = useTable({
-    features: dataTableFeatures,
-    columns,
-    data: data?.items ?? emptyRows,
-    rowCount: data?.rowCount,
-    atoms: { pagination: paginationAtom, sorting: sortingAtom },
-    manualPagination: true,
-    manualSorting: true,
-  });
-
-  return (
-    <>
-      {/* render Carbon Table / TableHead / TableRow / TableCell from table.getHeaderGroups() / getRowModel() + table.FlexRender */}
-      <DataTablePagination
-        pagination={table.state.pagination}
-        rowCount={table.getRowCount()}
-        onPaginationChange={table.setPagination}
-      />
-    </>
-  );
-}
-```
+5. Every column has a plain text `header` and a `minSize` and `maxSize` (`columnLabel` / `columnSizeLimits` in `src/lib/data-table.ts` throw otherwise). Its default width is fitted to the header and the current page's content with `useFittedColumnSizes`; users resize it with `ColumnResizeHandles` (drag, arrow keys, double-click to fit again), always within the limits. Render a `<colgroup>` from `header.getSize()` on a `table-fixed` Carbon `Table`, and truncate cells with a `title`.
+6. Sortable headers pass `translateWithId={() => sortActionLabel(label, column.getNextSortingOrder())}` so Carbon's sort description is Hungarian.
 
 Do **not** copy query rows into a separate `useState`—feed `data?.items ?? emptyRows` (stable empty fallback) straight into `useTable`.
 
@@ -287,7 +231,7 @@ export function ExampleForm() {
 - Theme: `src/app/carbon.scss` (Carbon Gray 10 + Prévost orange `#FBB727` on primary buttons with Gray 100 text). It loads only the styles of components the app uses, so add `components/<name>` to `src/app/_carbon-components.scss` when you use a new Carbon component.
 - Fonts: IBM Plex Sans / Mono through `next/font` in `src/app/layout.tsx`; Carbon reads them via `--font-plex-sans` / `--font-plex-mono`.
 - Tailwind is the layout utility layer. `src/app/globals.css` maps its colours to Carbon tokens (`bg-layer`, `text-text-secondary`, `border-border-subtle`, …) and orders the cascade layers so utilities win over Carbon styles.
-- Tables: Carbon `Table*` components + TanStack Table v9 + `DataTablePagination`.
+- Tables: Carbon `Table*` components + TanStack Table v9 + `DataTablePagination`, with content-fitted, resizable columns (see the table conventions above).
 - `@carbon/react` depends on `@ibm/telemetry-js`. Its postinstall does not run here because pnpm only runs build scripts listed in `onlyBuiltDependencies`; keep it off that list, and set `IBM_TELEMETRY_DISABLED=true` in CI and container environments.
 
 ### Lint & format

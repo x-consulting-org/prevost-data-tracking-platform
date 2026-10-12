@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { getStatusBoard, listDispatchers } from "@/actions/shipments";
 import { BoardSkeleton } from "@/components/shipments/board-skeleton";
+import { ShipmentsTable } from "@/components/shipments/shipments-table";
 import { ShipmentsToolbar } from "@/components/shipments/shipments-toolbar";
 import { StatusBoard } from "@/components/shipments/status-board";
 import { shipmentsSearchParamsSchema } from "@/lib/shipments/schemas";
@@ -27,14 +28,22 @@ async function Shipments({ searchParams }: Pick<PageProps<"/shipments">, "search
   if (!parsed.success) {
     notFound();
   }
-  const { filter } = parsed.data;
+  const { view, filter } = parsed.data;
 
-  const [dispatchers, board] = await Promise.all([listDispatchers(), getStatusBoard(filter)]);
+  // Only the kanban is rendered here (`board` is null in table view); the table pages on the client.
+  const [dispatchers, board] = await Promise.all([
+    listDispatchers(),
+    view === "kanban" ? getStatusBoard(filter) : null,
+  ]);
 
   return (
     <>
-      <ShipmentsToolbar filter={filter} dispatchers={dispatchers} />
-      <StatusBoard board={board} />
+      <ShipmentsToolbar view={view} filter={filter} dispatchers={dispatchers} />
+      {board === null ? (
+        <ShipmentsTable key={JSON.stringify(filter)} filter={filter} />
+      ) : (
+        <StatusBoard board={board} />
+      )}
     </>
   );
 }
