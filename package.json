@@ -15,6 +15,7 @@
     "db:down": "docker compose down",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed",
     "prisma:studio": "prisma studio",
     "auth:generate": "pnpm dlx auth@latest generate --config src/lib/auth.ts --output prisma/schema.prisma -y"
   },
@@ -58,6 +59,7 @@
     "prisma": "7.10.0",
     "sass": "^1.105.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "typescript-eslint": "^8.71.1",
     "vitest": "^5.0.4"

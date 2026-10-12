@@ -28,15 +28,20 @@ Create a `.env` in the project root with at least:
 
 ```bash
 DATABASE_URL="postgresql://prevost:prevost@localhost:5432/prevost_tracking"
+# Password of the seeded demo user (demo@prevost.example)
+DEMO_USER_PASSWORD="choose-a-password"
 ```
 
-Start Postgres, generate the Prisma client, and apply migrations:
+Start Postgres, generate the Prisma client, apply migrations and load the demo data:
 
 ```bash
 pnpm db:up
 pnpm prisma:generate
 pnpm prisma:migrate
+pnpm db:seed
 ```
+
+`pnpm db:seed` replaces all shipment data with a fresh, deterministic demo set (times are relative to the run) and creates the demo user if it is missing. Prisma 7 does not run it automatically after migrations.
 
 Run the app:
 
@@ -54,9 +59,11 @@ Open [http://localhost:3000](http://localhost:3000).
 | `pnpm build` / `pnpm start` | Production build & serve |
 | `pnpm lint` / `pnpm lint:fix` | ESLint |
 | `pnpm format` / `pnpm format:check` | Prettier |
+| `pnpm test` | Vitest (pure domain modules) |
 | `pnpm db:up` / `pnpm db:down` | Start/stop Postgres via Docker Compose |
 | `pnpm prisma:generate` | Generate Prisma Client → `src/generated/prisma` |
 | `pnpm prisma:migrate` | Run `prisma migrate dev` |
+| `pnpm db:seed` | Replace shipment data with the demo set (`prisma/seed.ts`) |
 | `pnpm prisma:studio` | Prisma Studio |
 | `pnpm auth:generate` | Sync better-auth models into `prisma/schema.prisma` |
 
