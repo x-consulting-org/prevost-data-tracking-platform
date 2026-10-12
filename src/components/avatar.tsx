@@ -1,11 +1,11 @@
 /** Background and text pairs for avatars; every pair is above 4.5:1. */
 const avatarColors = [
-  "bg-[#e7eefc] text-[#1f4bb0]",
-  "bg-[#e2f4ec] text-[#11704a]",
-  "bg-[#fdecec] text-[#a8242a]",
-  "bg-[#efe9fb] text-[#5b3cb0]",
-  "bg-[#e3f3f6] text-[#0f6575]",
-  "bg-[#fbeee4] text-[#97481a]",
+  "bg-sunflower-gold-100 text-sunflower-gold-800",
+  "bg-forest-moss-100 text-forest-moss-800",
+  "bg-muted-olive-100 text-muted-olive-800",
+  "bg-onyx-100 text-onyx-800",
+  "bg-sunflower-gold-200 text-sunflower-gold-900",
+  "bg-forest-moss-200 text-forest-moss-900",
 ] as const;
 
 /** The same person always gets the same colour, on every screen and in every session. */

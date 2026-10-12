@@ -79,7 +79,7 @@ src/
     (auth)/login/      # Sign-in page
     (app)/             # Signed-in shell: Fuvarok (shipments/), Kollégák (dispatchers/)
     api/auth/          # better-auth catch-all handler
-    carbon.scss        # Carbon theme (asphalt greys + Prévost orange, rounded controls)
+    carbon.scss        # Carbon theme (Prévost palette roles, rounded controls)
     _carbon-components.scss  # The Carbon component styles the app renders
   components/
     auth/              # Login form
@@ -244,8 +244,8 @@ export function ExampleForm() {
 ### UI (IBM Carbon + Tailwind v4)
 
 - Components come from `@carbon/react`, imported directly in client components (Carbon files carry no `"use client"`, so Server Components cannot render them). There is no wrapper layer.
-- Theme: `src/app/carbon.scss` (Carbon's Gray 10 with its neutrals replaced by the cool "asphalt" greys, Prévost orange `#FBB727` on primary buttons with ink text, and rounded controls). It loads only the styles of components the app uses, so add `components/<name>` to `src/app/_carbon-components.scss` when you use a new Carbon component.
-- Colours outside Carbon live in `src/app/globals.css`: the dark sidebar (`asphalt`), the shipment statuses (`status-<name>`, `-tint`, `-ink`; mapped to classes in `components/shipments/status-badge.tsx`) and the attention red for alerts. Amber means "on the road", so alerts are red, never amber.
+- Theme: `src/app/carbon.scss` (Carbon's Gray 10 with its colours replaced by roles in the Prévost palette: onyx neutrals, sunflower gold on primary buttons with ink text and as links and focus, and rounded controls). It loads only the styles of components the app uses, so add `components/<name>` to `src/app/_carbon-components.scss` when you use a new Carbon component.
+- The palette (sunflower gold, forest moss, muted olive, onyx) is defined once, in `src/app/globals.css`, with what it means in the app: the dark onyx sidebar, the shipment statuses (`status-<name>`, `-tint`, `-ink`; mapped to classes in `components/shipments/status-badge.tsx`: onyx unhandled, olive organizing, gold on the road, moss completed) and the attention red (`#D33F22`, text `#A92C1C`) for errors and alerts. Gold means "on the road", so alerts are red, never gold.
 - Fonts: IBM Plex Sans through `next/font` in `src/app/layout.tsx`; Carbon reads it via `--font-plex-sans`.
 - Tailwind is the layout utility layer. `src/app/globals.css` maps its colours to Carbon tokens (`bg-layer`, `text-text-secondary`, `border-border-subtle`, …) and orders the cascade layers so utilities win over Carbon styles.
 - Motion: one entrance per board (cards arrive lane by lane), hover lift on cards, and a ping on the live-refresh dot when the screen's data reloads (every minute while the tab is visible). `prefers-reduced-motion` turns all of it off.

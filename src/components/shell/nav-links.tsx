@@ -21,12 +21,12 @@ export function NavLinks() {
             <NextLink
               href={href}
               aria-current={isActive ? "page" : undefined}
-              className="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-asphalt-text transition-colors hover:bg-asphalt-raised hover:text-white focus-visible:outline-2 focus-visible:outline-brand aria-[current=page]:bg-asphalt-raised aria-[current=page]:text-white"
+              className="group flex items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium text-sidebar-text transition-colors hover:bg-sidebar-raised hover:text-white focus-visible:outline-2 focus-visible:outline-brand aria-[current=page]:bg-sidebar-raised aria-[current=page]:text-white md:px-3"
             >
               <Icon
                 size={18}
                 aria-hidden="true"
-                className="sm:block hidden shrink-0 transition-colors group-aria-[current=page]:text-brand"
+                className="hidden shrink-0 transition-colors group-aria-[current=page]:text-brand md:block"
               />
               {label}
             </NextLink>

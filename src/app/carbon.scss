@@ -1,33 +1,34 @@
-// IBM Carbon styles with the Prévost theme: Carbon's Gray 10 theme with its neutrals swapped
-// for the "asphalt" greys below, the logo orange as the primary action colour, and rounded
+// IBM Carbon styles with the Prévost theme: Carbon's Gray 10 theme with its colours swapped for
+// the Prévost palette (globals.css), sunflower gold as the primary action colour, and rounded
 // corners on the controls. Only the styles of components the app renders are loaded, listed in
 // `_carbon-components.scss`.
 //
 // Everything is emitted into the `carbon` cascade layer (ordered in globals.css) so Tailwind
 // utilities can still lay out and adjust Carbon markup.
 
-@use "sass:color";
 @use "sass:map";
 @use "sass:meta";
 @use "sass:string";
 
-// The asphalt neutrals: cool greys with a hint of blue. The only definition of them; Tailwind
-// reads them back through the Carbon tokens (globals.css).
-$-canvas: #f3f4f7;
+// Roles in the Prévost palette. The palette itself is defined once, in globals.css.
+$-canvas: var(--color-onyx-50);
 $-surface: #ffffff;
-$-surface-sunken: #f7f8fa;
-$-surface-hover: #eef0f4;
-$-line: #e2e5eb;
-$-line-strong: #c3c9d4;
-$-ink: #151a24;
-$-ink-secondary: #4f596b;
-$-ink-helper: #636d81;
-$-signal-blue: #2e5bdb;
-$-signal-blue-hover: #2449b8;
+$-surface-sunken: var(--color-onyx-50);
+$-surface-hover: var(--color-onyx-100);
+$-line: var(--color-onyx-100);
+$-line-strong: var(--color-onyx-300);
+$-ink: var(--color-onyx-900);
+$-ink-secondary: var(--color-onyx-700);
+$-ink-helper: var(--color-onyx-600);
+$-accent: var(--color-sunflower-gold-700);
+$-accent-hover: var(--color-sunflower-gold-800);
+$-focus: var(--color-sunflower-gold-600);
+$-error: var(--color-attention);
+$-shadow: var(--color-onyx-950);
 
-$-prevost-orange: #fbb727;
-$-prevost-orange-hover: color.scale($-prevost-orange, $lightness: -12%);
-$-prevost-orange-active: color.scale($-prevost-orange, $lightness: -24%);
+$-primary: var(--color-sunflower-gold-400);
+$-primary-hover: var(--color-sunflower-gold-500);
+$-primary-active: var(--color-sunflower-gold-600);
 
 // Controls and surfaces share these; anything bigger than a control (cards, lanes) uses
 // Tailwind's rounded-xl and up.
@@ -68,17 +69,19 @@ $-radius-surface: 0.875rem;
         border-subtle-02: $-line,
         border-strong-01: $-line-strong,
         border-strong-02: $-line-strong,
-        border-interactive: $-signal-blue,
+        border-interactive: $-focus,
         text-primary: $-ink,
         text-secondary: $-ink-secondary,
         text-helper: $-ink-helper,
         text-placeholder: $-ink-helper,
         icon-primary: $-ink,
         icon-secondary: $-ink-secondary,
-        link-primary: $-signal-blue,
-        link-primary-hover: $-signal-blue-hover,
-        interactive: $-signal-blue,
-        focus: $-signal-blue,
+        link-primary: $-accent,
+        link-primary-hover: $-accent-hover,
+        interactive: $-accent,
+        focus: $-focus,
+        support-error: $-error,
+        text-error: var(--color-attention-ink),
         skeleton-background: $-surface-hover,
         skeleton-element: $-line,
       )
@@ -86,16 +89,16 @@ $-radius-surface: 0.875rem;
 );
 @use "@carbon/react/scss/components/button/tokens" with (
   $button-primary: (
-    fallback: $-prevost-orange,
-    values: [(theme: themes.$g10, value: $-prevost-orange)],
+    fallback: $-primary,
+    values: [(theme: themes.$g10, value: $-primary)],
   ),
   $button-primary-hover: (
-    fallback: $-prevost-orange-hover,
-    values: [(theme: themes.$g10, value: $-prevost-orange-hover)],
+    fallback: $-primary-hover,
+    values: [(theme: themes.$g10, value: $-primary-hover)],
   ),
   $button-primary-active: (
-    fallback: $-prevost-orange-active,
-    values: [(theme: themes.$g10, value: $-prevost-orange-active)],
+    fallback: $-primary-active,
+    values: [(theme: themes.$g10, value: $-primary-active)],
   )
 );
 
@@ -105,12 +108,9 @@ $-radius-surface: 0.875rem;
   // Emitted after the components so their component tokens (button) are registered.
   :root {
     @include theme.theme();
-
-    // Exposed to Tailwind as `brand` (globals.css); never as text on a light surface.
-    --prevost-orange: #{$-prevost-orange};
   }
 
-  // White text on the orange is ~1.8:1; the ink keeps primary buttons above 6:1
+  // White text on the gold is under 2:1; the ink keeps primary buttons above 6:1
   // in every state without changing `text-on-color` for other components.
   .cds--btn--primary {
     --cds-text-on-color: #{$-ink};
@@ -166,14 +166,14 @@ $-radius-surface: 0.875rem;
     }
 
     &:focus-visible {
-      outline: 2px solid $-signal-blue;
+      outline: 2px solid $-focus;
       outline-offset: 1px;
     }
 
     &.cds--content-switcher--selected {
       background-color: $-surface;
       color: $-ink;
-      box-shadow: 0 1px 2px rgb(21 26 36 / 0.12);
+      box-shadow: 0 1px 2px color-mix(in srgb, #{$-shadow} 12%, transparent);
     }
   }
 
@@ -218,11 +218,11 @@ $-radius-surface: 0.875rem;
   .cds--modal-container {
     overflow: hidden;
     border-radius: 1.25rem;
-    box-shadow: 0 24px 64px rgb(21 26 36 / 0.24);
+    box-shadow: 0 24px 64px color-mix(in srgb, #{$-shadow} 24%, transparent);
   }
 
   .cds--modal {
-    background-color: rgb(21 26 36 / 0.45);
+    background-color: color-mix(in srgb, #{$-shadow} 45%, transparent);
     backdrop-filter: blur(3px);
   }
 }

@@ -19,7 +19,6 @@
   --color-text-helper: var(--cds-text-helper);
   --color-focus: var(--cds-focus);
   --color-link-primary: var(--cds-link-primary);
-  --color-brand: var(--prevost-orange);
   --color-support-error: var(--cds-support-error);
   --color-support-success: var(--cds-support-success);
 
@@ -31,34 +30,91 @@
   --breakpoint-2xl: 99rem;
 }
 
-/* Colours that are not Carbon's: the dark sidebar and the shipment statuses. Each status has a
-   solid (dots, bars), a tint (lane and badge backgrounds) and an ink (text on the tint, 4.5:1+). */
+/* The Prévost palette (David, 2026-10-12). The only place colours are defined: Carbon's theme
+   (carbon.scss) and the tokens below refer to these. `static` keeps every step in the CSS, since
+   carbon.scss uses them where Tailwind does not see it. */
+@theme static {
+  --color-sunflower-gold-50: #fdf6e7;
+  --color-sunflower-gold-100: #fcedcf;
+  --color-sunflower-gold-200: #f9db9f;
+  --color-sunflower-gold-300: #f6c96f;
+  --color-sunflower-gold-400: #f3b73f;
+  --color-sunflower-gold-500: #f0a50f;
+  --color-sunflower-gold-600: #c0840c;
+  --color-sunflower-gold-700: #906309;
+  --color-sunflower-gold-800: #604206;
+  --color-sunflower-gold-900: #302103;
+  --color-sunflower-gold-950: #221702;
+
+  --color-forest-moss-50: #f6f9ec;
+  --color-forest-moss-100: #eef2d9;
+  --color-forest-moss-200: #dce6b3;
+  --color-forest-moss-300: #cbd98c;
+  --color-forest-moss-400: #b9cc66;
+  --color-forest-moss-500: #a8bf40;
+  --color-forest-moss-600: #869933;
+  --color-forest-moss-700: #657326;
+  --color-forest-moss-800: #434d19;
+  --color-forest-moss-900: #22260d;
+  --color-forest-moss-950: #181b09;
+
+  --color-muted-olive-50: #f5f6ef;
+  --color-muted-olive-100: #eaedde;
+  --color-muted-olive-200: #d6dbbd;
+  --color-muted-olive-300: #c1c99c;
+  --color-muted-olive-400: #adb77b;
+  --color-muted-olive-500: #98a45b;
+  --color-muted-olive-600: #7a8448;
+  --color-muted-olive-700: #5b6336;
+  --color-muted-olive-800: #3d4224;
+  --color-muted-olive-900: #1e2112;
+  --color-muted-olive-950: #15170d;
+
+  --color-onyx-50: #f3f3f1;
+  --color-onyx-100: #e8e6e3;
+  --color-onyx-200: #d1cec7;
+  --color-onyx-300: #b9b5ac;
+  --color-onyx-400: #a29c90;
+  --color-onyx-500: #8b8374;
+  --color-onyx-600: #6f695d;
+  --color-onyx-700: #534f46;
+  --color-onyx-800: #38352e;
+  --color-onyx-900: #1c1a17;
+  --color-onyx-950: #131210;
+}
+
+/* What the palette means in the app. Each status has a solid (dots, bars), a tint (lane and
+   badge backgrounds) and an ink (text on the tint, 7:1+). */
 @theme {
-  --color-asphalt: #141820;
-  --color-asphalt-raised: #1f2531;
-  --color-asphalt-text: #c6ccd8;
+  /* The gold of the primary buttons; never as text on a light surface. */
+  --color-brand: var(--color-sunflower-gold-400);
 
-  --color-status-unhandled: #8a94a8;
-  --color-status-unhandled-tint: #eceef3;
-  --color-status-unhandled-ink: #444e61;
-  --color-status-organizing: #3d6fe0;
-  --color-status-organizing-tint: #e7eefc;
-  --color-status-organizing-ink: #1f4bb0;
-  --color-status-in-transit: #fbb727;
-  --color-status-in-transit-tint: #fdf2d8;
-  --color-status-in-transit-ink: #7a5200;
-  --color-status-completed: #1e9e6a;
-  --color-status-completed-tint: #e2f4ec;
-  --color-status-completed-ink: #11704a;
-  --color-status-cancelled: #b4bac6;
-  --color-status-cancelled-tint: #f0f1f4;
-  --color-status-cancelled-ink: #4f596b;
+  --color-sidebar: var(--color-onyx-950);
+  --color-sidebar-raised: var(--color-onyx-900);
+  --color-sidebar-text: var(--color-onyx-300);
 
-  /* Alerts are red so they never read as the amber of shipments on the road. */
-  --color-attention: #e5484d;
-  --color-attention-tint: #fdecec;
-  --color-attention-ink: #a8242a;
-  --color-attention-on-dark: #ff9b9e;
+  --color-status-unhandled: var(--color-onyx-400);
+  --color-status-unhandled-tint: var(--color-onyx-100);
+  --color-status-unhandled-ink: var(--color-onyx-700);
+  --color-status-organizing: var(--color-muted-olive-500);
+  --color-status-organizing-tint: var(--color-muted-olive-100);
+  --color-status-organizing-ink: var(--color-muted-olive-800);
+  --color-status-in-transit: var(--color-sunflower-gold-500);
+  --color-status-in-transit-tint: var(--color-sunflower-gold-100);
+  --color-status-in-transit-ink: var(--color-sunflower-gold-800);
+  --color-status-completed: var(--color-forest-moss-700);
+  --color-status-completed-tint: var(--color-forest-moss-200);
+  --color-status-completed-ink: var(--color-forest-moss-900);
+  --color-status-cancelled: var(--color-onyx-300);
+  --color-status-cancelled-tint: var(--color-onyx-50);
+  --color-status-cancelled-ink: var(--color-onyx-700);
+
+  /* Errors and alerts (David's reds). The tint and the on-dark variant are derived: the ink keeps
+     5.8:1 on the tint, and neither red reaches 4.5:1 on the dark sidebar. */
+  --color-attention: #d33f22;
+  --color-attention-tint: #fbeae6;
+  --color-attention-ink: #a92c1c;
+  --color-attention-on-dark: #ff9b96;
 
   --animate-enter: enter 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   --animate-ping-once: ping-once 900ms ease-out;

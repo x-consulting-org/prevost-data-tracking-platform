@@ -100,7 +100,7 @@ export function DispatcherBoard({
   }, [focusedDispatcherId]);
 
   return (
-    <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
       {board.columns.map(({ dispatcher, statusColumns, shipmentCount, attentionCount }, index) => (
         <section
           key={dispatcher.id}
