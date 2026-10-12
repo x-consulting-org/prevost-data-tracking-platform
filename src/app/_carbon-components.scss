@@ -7,8 +7,14 @@
 
 @use "@carbon/react/scss/reset";
 @use "@carbon/react/scss/layout";
+@use "@carbon/react/scss/zone";
+@use "@carbon/react/scss/components/dropdown";
 @use "@carbon/react/scss/components/form";
 @use "@carbon/react/scss/components/notification";
 @use "@carbon/react/scss/components/pagination";
+@use "@carbon/react/scss/components/skeleton-styles";
 @use "@carbon/react/scss/components/stack";
+@use "@carbon/react/scss/components/tag";
 @use "@carbon/react/scss/components/text-input";
+@use "@carbon/react/scss/components/toggle";
+@use "@carbon/react/scss/components/ui-shell";

@@ -26,6 +26,7 @@
     ]
   },
   "dependencies": {
+    "@carbon/icons-react": "^11.90.0",
     "@carbon/react": "^1.118.0",
     "@hookform/resolvers": "^5.9.1",
     "@prisma/adapter-pg": "^7.10.0",

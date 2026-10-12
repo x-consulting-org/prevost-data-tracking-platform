@@ -58,4 +58,9 @@ $-prevost-orange-active: color.scale($-prevost-orange, $lightness: -24%);
     --cds-text-on-color: #{colors.$gray-100};
     --cds-icon-on-color: #{colors.$gray-100};
   }
+
+  // The active navigation marker is the brand orange instead of the interactive blue.
+  .cds--side-nav__link {
+    --cds-border-interactive: #{$-prevost-orange};
+  }
 }

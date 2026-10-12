@@ -21,4 +21,12 @@
   --color-support-warning: var(--cds-support-warning);
   --color-support-success: var(--cds-support-success);
   --color-support-info: var(--cds-support-info);
+
+  /* Carbon's breakpoints (md 672, lg 1056, xlg 1312, max 1584), so layout changes
+     happen where the UI Shell's do; below md is Carbon's sm. */
+  --breakpoint-*: initial;
+  --breakpoint-md: 42rem;
+  --breakpoint-lg: 66rem;
+  --breakpoint-xl: 82rem;
+  --breakpoint-2xl: 99rem;
 }
