@@ -34,7 +34,7 @@ function RouteMotif() {
         cx="296"
         cy="32"
         r="9"
-        className="fill-asphalt"
+        className="fill-sidebar"
         stroke="currentColor"
         strokeWidth="4"
       />
@@ -45,7 +45,7 @@ function RouteMotif() {
 export default function LoginPage() {
   return (
     <main className="grid flex-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-      <section className="hidden flex-col justify-between gap-12 bg-asphalt p-12 lg:flex">
+      <section className="hidden flex-col justify-between gap-12 bg-sidebar p-12 lg:flex">
         <Image src="/prevost-logo.png" alt="Prévost Hungaria" width={180} height={32} priority />
         <RouteMotif />
         <p className="max-w-sm text-2xl leading-snug font-medium text-white">
@@ -54,7 +54,7 @@ export default function LoginPage() {
       </section>
       <div className="flex items-center justify-center px-4 py-16">
         <div className="flex w-full max-w-sm flex-col gap-8">
-          <div className="w-fit rounded-xl bg-asphalt px-4 py-3 lg:hidden">
+          <div className="w-fit rounded-xl bg-sidebar px-4 py-3 lg:hidden">
             <Image
               src="/prevost-logo.png"
               alt="Prévost Hungaria"

@@ -99,7 +99,7 @@ export function ShipmentCard({ shipment, now }: { shipment: ShipmentCardData; no
   return (
     <article
       aria-label={shipment.reference}
-      className="group relative flex flex-col gap-3 rounded-xl border border-border-subtle bg-layer p-3.5 transition-[box-shadow,border-color,translate] duration-200 ease-out hover:-translate-y-0.5 hover:border-border-strong hover:shadow-[0_6px_20px_-8px_rgb(21_26_36/0.25)]"
+      className="group relative flex flex-col gap-3 rounded-xl border border-border-subtle bg-layer p-3.5 transition-[box-shadow,border-color,translate] duration-200 ease-out hover:-translate-y-0.5 hover:border-border-strong hover:shadow-[0_6px_20px_-8px_rgb(19_18_16/0.25)]"
     >
       <header className="flex items-baseline justify-between gap-3">
         <ShipmentReferenceButton shipment={shipment} stretched />

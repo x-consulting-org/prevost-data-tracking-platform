@@ -18,13 +18,13 @@ export async function ShellStatus() {
     <div className="flex items-center gap-2 lg:flex-col lg:items-stretch lg:gap-4">
       <section
         aria-label="Adatok frissessége"
-        className="hidden flex-col gap-2.5 rounded-xl bg-asphalt-raised p-3 text-xs lg:flex"
+        className="hidden flex-col gap-2.5 rounded-xl bg-sidebar-raised p-3 text-xs lg:flex"
       >
         <LiveRefresh renderedAt={renderedAt} />
         <dl className="flex flex-col gap-1.5 tabular-nums">
           {syncStates.map((state) => (
             <div key={state.source} className="flex items-center justify-between gap-2">
-              <dt className="flex items-center gap-2 text-asphalt-text">
+              <dt className="flex items-center gap-2 text-sidebar-text">
                 <span
                   aria-hidden="true"
                   className={`size-1.5 rounded-full ${state.status === "synced" ? "bg-status-completed" : "bg-status-unhandled"}`}

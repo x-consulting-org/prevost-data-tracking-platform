@@ -247,12 +247,15 @@ export function ShipmentsTable({ filter }: { filter: ShipmentFilter }) {
   return (
     <TableContainer>
       <div className="overflow-x-auto">
-        <div className="relative" style={{ width: table.getTotalSize() }}>
-          <Table size="sm" className="table-fixed">
+        {/* Columns keep their own widths; on a wider screen an empty last column takes the rest,
+            so the table fills its container and the resize handles stay on the column edges. */}
+        <div className="relative min-w-full" style={{ width: table.getTotalSize() }}>
+          <Table size="sm" className="w-full table-fixed">
             <colgroup>
               {table.getFlatHeaders().map((header) => (
                 <col key={header.id} style={{ width: header.getSize() }} />
               ))}
+              <col />
             </colgroup>
             <TableHead>
               {table.getHeaderGroups().map((headerGroup) => (
@@ -274,13 +277,14 @@ export function ShipmentsTable({ filter }: { filter: ShipmentFilter }) {
                       </TableHeader>
                     );
                   })}
+                  <th aria-hidden="true" />
                 </TableRow>
               ))}
             </TableHead>
             <TableBody>
               {table.getRowModel().rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={shipmentColumns.length}>
+                  <TableCell colSpan={shipmentColumns.length + 1}>
                     Nincs a szűrőnek megfelelő fuvar.
                   </TableCell>
                 </TableRow>
@@ -292,6 +296,7 @@ export function ShipmentsTable({ filter }: { filter: ShipmentFilter }) {
                         <FlexRender cell={cell} />
                       </TableCell>
                     ))}
+                    <td aria-hidden="true" />
                   </TableRow>
                 ))
               )}
