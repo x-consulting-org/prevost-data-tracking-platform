@@ -106,6 +106,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "src/generated/**",
     "pnpm-lock.yaml",
+    // Vendored agent skills, not app code.
+    ".agents/**",
   ]),
 ]);
 

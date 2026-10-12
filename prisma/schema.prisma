@@ -144,7 +144,10 @@ model Shipment {
   updatedAt           DateTime        @updatedAt
 
   @@index([status, pickupAt])
+  /// The boards' "closed within the last days" condition.
+  @@index([status, statusChangedAt])
   @@index([dispatcherId, status])
+  @@index([customerId])
   @@map("shipment")
 }
 

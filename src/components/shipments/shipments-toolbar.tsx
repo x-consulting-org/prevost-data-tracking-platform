@@ -1,6 +1,6 @@
 "use client";
 
-import { Checkmark, Time } from "@carbon/icons-react";
+import { Checkmark, Time, TrashCan } from "@carbon/icons-react";
 import { ContentSwitcher, Switch } from "@carbon/react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
@@ -80,19 +80,34 @@ export function ShipmentsToolbar({
             <Switch key={option} name={option} text={viewLabel[option]} />
           ))}
         </ContentSwitcher>
-        <Chip
-          pressed={filter.pickupWithin24h}
-          onClick={() =>
-            show({ view, filter: { ...filter, pickupWithin24h: !filter.pickupWithin24h } })
-          }
-        >
-          {filter.pickupWithin24h ? (
-            <Checkmark size={16} aria-hidden="true" />
-          ) : (
-            <Time size={16} aria-hidden="true" />
-          )}
-          Felrakás 24 órán belül
-        </Chip>
+        <div className="flex flex-wrap gap-2">
+          <Chip
+            pressed={filter.pickupWithin24h}
+            onClick={() =>
+              show({ view, filter: { ...filter, pickupWithin24h: !filter.pickupWithin24h } })
+            }
+          >
+            {filter.pickupWithin24h ? (
+              <Checkmark size={16} aria-hidden="true" />
+            ) : (
+              <Time size={16} aria-hidden="true" />
+            )}
+            Felrakás 24 órán belül
+          </Chip>
+          <Chip
+            pressed={filter.includeCancelled}
+            onClick={() =>
+              show({ view, filter: { ...filter, includeCancelled: !filter.includeCancelled } })
+            }
+          >
+            {filter.includeCancelled ? (
+              <Checkmark size={16} aria-hidden="true" />
+            ) : (
+              <TrashCan size={16} aria-hidden="true" />
+            )}
+            Töröltek is
+          </Chip>
+        </div>
       </div>
       {/* One chip per dispatcher; on narrow screens the row scrolls sideways. */}
       <div

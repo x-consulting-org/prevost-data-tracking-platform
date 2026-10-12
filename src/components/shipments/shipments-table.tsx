@@ -19,7 +19,7 @@ import {
   type PaginationState,
   type SortingState,
 } from "@tanstack/react-table";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { listShipmentsPage } from "@/actions/shipments";
 import { ColumnResizeHandles } from "@/components/data-table/column-resize-handles";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -30,7 +30,7 @@ import { ShipmentReferenceButton } from "@/components/shipments/shipment-referen
 import { ShipmentStatusBadge } from "@/components/shipments/status-badge";
 import { columnLabel, dataTableFeatures, sortActionLabel } from "@/lib/data-table";
 import { formatDateTime } from "@/lib/format";
-import { pageSizeOptions } from "@/lib/pagination";
+import { defaultPageSize } from "@/lib/pagination";
 import { queryKeys } from "@/lib/query-keys";
 import { describeShipmentAlert } from "@/lib/shipments/alerts";
 import { sortableShipmentColumnSchema, type ShipmentFilter } from "@/lib/shipments/schemas";
@@ -179,7 +179,7 @@ const carbonSortDirection = { asc: "ASC", desc: "DESC" } as const;
 export function ShipmentsTable({ filter }: { filter: ShipmentFilter }) {
   const paginationAtom = useCreateAtom<PaginationState>({
     pageIndex: 0,
-    pageSize: pageSizeOptions[1],
+    pageSize: defaultPageSize,
   });
   const sortingAtom = useCreateAtom<SortingState>([]);
   const pagination = useSelector(paginationAtom, (value) => value);
@@ -195,7 +195,9 @@ export function ShipmentsTable({ filter }: { filter: ShipmentFilter }) {
     queryKey: queryKeys.shipments.page(pageInput),
     queryFn: () => listShipmentsPage(pageInput),
     placeholderData: keepPreviousData,
-    throwOnError: true,
+    // Only a failed first load goes to the error boundary; a failed background refresh keeps
+    // the rows on screen, and the next refresh tries again.
+    throwOnError: (_error, query) => query.state.data === undefined,
   });
 
   const rows = data?.items ?? emptyRows;
@@ -231,6 +233,14 @@ export function ShipmentsTable({ filter }: { filter: ShipmentFilter }) {
     enableMultiSort: false,
     columnResizeMode: "onChange",
   });
+
+  // A refresh can leave fewer pages than the one on screen; move to the new last page.
+  const pageCount = data?.pageCount;
+  useEffect(() => {
+    if (pageCount !== undefined && pageCount > 0 && pagination.pageIndex >= pageCount) {
+      table.setPageIndex(pageCount - 1);
+    }
+  }, [pageCount, pagination.pageIndex, table]);
 
   if (data === undefined) {
     return (

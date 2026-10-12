@@ -16,8 +16,8 @@ function searchParams(href: string) {
 describe("shipments URL", () => {
   it("parses back to the state it was built from", () => {
     const states: ShipmentsSearchParams[] = [
-      { view: "kanban", filter: { pickupWithin24h: false } },
-      { view: "table", filter: { dispatcherId, pickupWithin24h: true } },
+      { view: "kanban", filter: { pickupWithin24h: false, includeCancelled: false } },
+      { view: "table", filter: { dispatcherId, pickupWithin24h: true, includeCancelled: true } },
     ];
     for (const state of states) {
       expect(shipmentsSearchParamsSchema.parse(searchParams(shipmentsHref(state)))).toEqual({
@@ -25,15 +25,19 @@ describe("shipments URL", () => {
         filter: {
           dispatcherId: state.filter.dispatcherId,
           pickupWithin24h: state.filter.pickupWithin24h,
+          includeCancelled: state.filter.includeCancelled,
         },
       });
     }
   });
 
   it("leaves defaults out of the URL", () => {
-    expect(shipmentsHref({ view: "kanban", filter: { pickupWithin24h: false } })).toBe(
-      "/shipments",
-    );
+    expect(
+      shipmentsHref({
+        view: "kanban",
+        filter: { pickupWithin24h: false, includeCancelled: false },
+      }),
+    ).toBe("/shipments");
   });
 
   it("rejects values the screen does not know", () => {
