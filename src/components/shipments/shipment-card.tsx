@@ -1,5 +1,3 @@
-"use client";
-
 import { AlertList } from "@/components/shipments/alert-list";
 import { DispatcherTag } from "@/components/shipments/dispatcher-tag";
 import { ShipmentReferenceButton } from "@/components/shipments/shipment-reference-button";

@@ -27,10 +27,14 @@ async function Dispatchers({ searchParams }: Pick<PageProps<"/dispatchers">, "se
     notFound();
   }
 
-  return (
-    <DispatcherBoard
-      board={await getDispatcherBoard()}
-      focusedDispatcherId={parsed.data.dispatcher}
-    />
-  );
+  const board = await getDispatcherBoard();
+  const focusedDispatcherId = parsed.data.dispatcher;
+  if (
+    focusedDispatcherId !== undefined &&
+    !board.columns.some((column) => column.dispatcher.id === focusedDispatcherId)
+  ) {
+    notFound();
+  }
+
+  return <DispatcherBoard board={board} focusedDispatcherId={focusedDispatcherId} />;
 }

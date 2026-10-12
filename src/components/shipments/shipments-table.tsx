@@ -23,10 +23,7 @@ import type { ReactNode } from "react";
 import { listShipmentsPage } from "@/actions/shipments";
 import { ColumnResizeHandles } from "@/components/data-table/column-resize-handles";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
-import {
-  useFittedColumnSizes,
-  type FittableColumn,
-} from "@/components/data-table/use-fitted-column-sizes";
+import { useFittedColumns, type FittableColumn } from "@/components/data-table/use-fitted-columns";
 import { AttentionIcon } from "@/components/shipments/alert-list";
 import { DispatcherTag } from "@/components/shipments/dispatcher-tag";
 import { ShipmentReferenceButton } from "@/components/shipments/shipment-reference-button";
@@ -36,7 +33,7 @@ import { formatDateTime } from "@/lib/format";
 import { pageSizeOptions } from "@/lib/pagination";
 import { queryKeys } from "@/lib/query-keys";
 import { describeShipmentAlert } from "@/lib/shipments/alerts";
-import { isSortableShipmentColumn, type ShipmentFilter } from "@/lib/shipments/schemas";
+import { sortableShipmentColumnSchema, type ShipmentFilter } from "@/lib/shipments/schemas";
 import { shipmentStatusLabel } from "@/lib/shipments/status";
 import type { ShipmentCard } from "@/server/shipments";
 
@@ -185,9 +182,8 @@ export function ShipmentsTable({ filter }: { filter: ShipmentFilter }) {
 
   const pageInput = {
     ...pagination,
-    sorting: sorting.flatMap(({ id, desc }) =>
-      isSortableShipmentColumn(id) ? [{ id, desc }] : [],
-    ),
+    // Only sortable columns enable sorting, so any other id is a bug and throws here.
+    sorting: sorting.map(({ id, desc }) => ({ id: sortableShipmentColumnSchema.parse(id), desc })),
     filter,
   };
   const { data } = useQuery({
@@ -198,11 +194,11 @@ export function ShipmentsTable({ filter }: { filter: ShipmentFilter }) {
   });
 
   const rows = data?.items ?? emptyRows;
-  const fittedSizes = useFittedColumnSizes(shipmentColumns, rows);
+  const fittedColumns = useFittedColumns(shipmentColumns, rows);
 
   // The fitted width is the column's default size; a manual resize overrides it until reset.
   const columns = helper.columns(
-    shipmentColumns.map((spec) =>
+    fittedColumns.map((spec) =>
       helper.accessor((shipment) => spec.text(shipment), {
         id: spec.id,
         header: spec.header,
@@ -212,7 +208,7 @@ export function ShipmentsTable({ filter }: { filter: ShipmentFilter }) {
           </span>
         ),
         enableSorting: spec.sortable,
-        size: fittedSizes[spec.id] ?? spec.minSize,
+        size: spec.size,
         minSize: spec.minSize,
         maxSize: spec.maxSize,
       }),
