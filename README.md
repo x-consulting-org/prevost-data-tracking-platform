@@ -73,21 +73,35 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ```text
 src/
-  actions/             # Server Actions ("use server") — lists & mutations
+  actions/             # Server Actions ("use server"): authenticate, parse, delegate
     helpers/           # Shared action helpers (e.g. Zod parse)
-  app/                 # App Router pages & API routes
-  app/api/auth/        # better-auth catch-all handler
+  app/
+    (auth)/login/      # Sign-in page
+    (app)/             # Signed-in shell: Fuvarok (shipments/), Kollégák (dispatchers/)
+    api/auth/          # better-auth catch-all handler
+    carbon.scss        # Carbon theme (Gray 10 + Prévost orange)
+    _carbon-components.scss  # The Carbon component styles the app renders
   components/
+    auth/              # Login form
     data-table/        # Carbon pagination, column fitting and resizing for TanStack Table
+    dispatchers/       # Kollégák board
     providers/         # QueryProvider
+    shell/             # Carbon UI Shell: header, side nav, sync status, user menu
+    shipments/         # Kanban, table, cards, tags, shipment detail
   lib/
     auth.ts
     auth-client.ts
     data-table.ts      # Shared TanStack Table v9 features and column rules
+    format.ts          # The only place that decides locale and time zone
     pagination.ts      # Zod list/pagination schemas + PaginatedResult
     prisma.ts
     query-keys.ts      # TanStack Query key factory
-prisma/
+    shipments/         # Pure domain rules: statuses, alerts, grouping, schemas, sources
+  server/              # Server-only read models and identity (Prisma lives here)
+  proxy.ts             # Redirects signed-out requests to /login
+prisma/                # Schema, migrations, demo seed
+docs/adr/              # Architecture decisions
+GLOSSARY.md            # Domain terms
 docker-compose.yml
 prisma7.config.ts
 eslint.config.mjs
@@ -112,26 +126,26 @@ prettier.config.mjs
 
 ```tsx
 // Client — query
-const listInput = { pageIndex, pageSize, sorting };
+const pageInput = { pageIndex, pageSize, sorting, filter };
 const { data } = useQuery({
-  queryKey: queryKeys.example.list(listInput),
-  queryFn: () => listExamples(listInput),
+  queryKey: queryKeys.shipments.page(pageInput),
+  queryFn: () => listShipmentsPage(pageInput),
   placeholderData: keepPreviousData,
 });
 
-// Client — mutation
+// Client — mutation (`assignShipment` stands for any mutating action; the demo has none yet)
 const mutation = useMutation({
-  mutationFn: createExample,
+  mutationFn: assignShipment,
   onSuccess: () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.example.lists() });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.shipments.all });
   },
 });
 
 // Server Component — direct
-const initial = await listExamples({ pageIndex: 0, pageSize: 10, sorting: [] });
+const board = await getStatusBoard({ pickupWithin24h: false });
 ```
 
-Optional: hydrate with `useQuery({ ..., initialData: initial })` from an RSC.
+Optional: hydrate with `useQuery({ ..., initialData })` from an RSC.
 
 ### List / table pagination (TanStack Table v9 + Carbon)
 
@@ -189,10 +203,10 @@ export function ExampleForm() {
   });
 
   const mutation = useMutation({
-    mutationFn: createExample, // server action
+    mutationFn: createCustomer, // a mutating server action (illustrative)
     onSuccess: async () => {
       form.reset();
-      await queryClient.invalidateQueries({ queryKey: queryKeys.example.lists() });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.shipments.all });
     },
   });
 
@@ -255,6 +269,7 @@ pnpm format:check
 5. ESLint policy + Prettier setup
 6. TanStack Query/Table, Zod, react-hook-form, server-action + pagination conventions
 7. IBM Carbon replaces shadcn/ui
+8. Phase-0 operations demo: domain model and seed, login, Fuvarok (kanban and resizable table), Kollégák, shipment detail
 
 ## Learn more
 
