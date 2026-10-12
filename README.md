@@ -108,6 +108,7 @@ prettier.config.mjs
 6. Do **not** add Route Handlers for ordinary app CRUD when a server action exists.
 7. Keep query keys in `src/lib/query-keys.ts` (hierarchical factory). Invalidate by prefix.
 8. Put every server-owned table slice (`pagination`, `sorting`, filters) in the **query key**. Prefer `placeholderData: keepPreviousData` for page transitions.
+9. Screen state a user would reload or share (view, filters, the focused dispatcher, the open shipment) lives in the URL. Pages parse their search params with a Zod schema (`src/lib/shipments/schemas.ts`) and answer 404 on invalid input. Client-only state such as `?shipment=<id>` is set through the history API (`src/components/shipments/shipment-detail-url.ts`), which updates `useSearchParams` without a server round trip.
 
 ```tsx
 // Client — query

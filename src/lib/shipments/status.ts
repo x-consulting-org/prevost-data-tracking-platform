@@ -1,6 +1,6 @@
 import { ShipmentStatus } from "@/generated/prisma/enums";
 
-/** Board column order. CANCELLED is not a column; it only shows in the table. */
+/** Board column order. CANCELLED is not a column, and the demo does not show cancelled shipments. */
 export const boardStatuses = [
   ShipmentStatus.UNHANDLED,
   ShipmentStatus.ORGANIZING,

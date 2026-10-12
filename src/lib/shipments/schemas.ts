@@ -44,6 +44,9 @@ export type ShipmentView = (typeof shipmentViews)[number];
 /** The view a bare `/shipments` URL shows; it is left out of the URL. */
 export const defaultShipmentView: ShipmentView = "kanban";
 
+/** Search params of the Kollégák screen: the dispatcher to bring into view. */
+export const dispatchersSearchParamsSchema = z.object({ dispatcher: z.uuid().optional() });
+
 /** Search params of the Fuvarok screen; parsed into the same filter the actions take. */
 export const shipmentsSearchParamsSchema = z
   .object({

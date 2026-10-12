@@ -29,6 +29,7 @@ import {
 } from "@/components/data-table/use-fitted-column-sizes";
 import { AttentionIcon } from "@/components/shipments/alert-list";
 import { DispatcherTag } from "@/components/shipments/dispatcher-tag";
+import { ShipmentReferenceButton } from "@/components/shipments/shipment-reference-button";
 import { ShipmentStatusTag } from "@/components/shipments/status-tag";
 import { columnLabel, dataTableFeatures, sortActionLabel } from "@/lib/data-table";
 import { formatDateTime } from "@/lib/format";
@@ -57,6 +58,7 @@ const shipmentColumns: readonly ShipmentColumn[] = [
     id: "reference",
     header: "Referencia",
     text: (shipment) => shipment.reference,
+    render: (shipment) => <ShipmentReferenceButton shipment={shipment} />,
     font: "mono",
     sortable: true,
     chrome: cellPadding,
