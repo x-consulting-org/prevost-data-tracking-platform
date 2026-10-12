@@ -7,9 +7,9 @@ import { fitColumnSize } from "@/lib/data-table";
 export type FittableColumn<TRow> = {
   id: string;
   header: string;
-  /** The text the cell shows; measured in the column's font. */
+  /** The text the cell shows; measured in the column's weight of IBM Plex Sans. */
   text: (row: TRow) => string;
-  font: "sans" | "mono";
+  weight: "regular" | "semibold";
   /** Sortable headers also hold Carbon's sort icon. */
   sortable: boolean;
   /** Fixed extra width besides text: cell padding, sort icon, tag chrome. */
@@ -18,8 +18,10 @@ export type FittableColumn<TRow> = {
   maxSize: number;
 };
 
-// Carbon `body-compact-01` for cells and `heading-compact-01` for headers.
+// Carbon `body-compact-01` for cells; headers are set in weight 500 (carbon.scss).
 const fontSize = "14px";
+const headerWeight = 500;
+const cellWeight = { regular: 400, semibold: 600 } as const;
 const letterSpacing = 0.16;
 const sortIconWidth = 28;
 
@@ -53,7 +55,7 @@ function useFontsReady(): boolean {
 
 /**
  * The columns with their initial width: fitted to the header and the rows on screen within
- * each column's limits, measured with canvas in the real IBM Plex fonts. Until the fonts are
+ * each column's limits, measured with canvas in the real IBM Plex Sans. Until the fonts are
  * loaded (and during server rendering) every column starts at its minimum width.
  */
 export function useFittedColumns<TRow, TColumn extends FittableColumn<TRow>>(
@@ -67,20 +69,16 @@ export function useFittedColumns<TRow, TColumn extends FittableColumn<TRow>>(
       return columns.map((column) => ({ ...column, size: column.minSize }));
     }
 
-    const rootStyle = getComputedStyle(document.documentElement);
-    const family = {
-      sans: rootStyle.getPropertyValue("--font-plex-sans"),
-      mono: rootStyle.getPropertyValue("--font-plex-mono"),
-    };
+    const family = getComputedStyle(document.documentElement).getPropertyValue("--font-plex-sans");
 
     return columns.map((column) => ({
       ...column,
       size: fitColumnSize({
         headerWidth:
-          measure(column.header, `600 ${fontSize} ${family.sans}`) +
+          measure(column.header, `${headerWeight} ${fontSize} ${family}`) +
           (column.sortable ? sortIconWidth : 0),
         cellWidths: rows.map((row) =>
-          measure(column.text(row), `400 ${fontSize} ${family[column.font]}`),
+          measure(column.text(row), `${cellWeight[column.weight]} ${fontSize} ${family}`),
         ),
         chrome: column.chrome,
         minSize: column.minSize,

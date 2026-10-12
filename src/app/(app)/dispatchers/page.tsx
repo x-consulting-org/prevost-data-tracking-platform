@@ -13,7 +13,12 @@ export const metadata: Metadata = {
 export default function DispatchersPage({ searchParams }: PageProps<"/dispatchers">) {
   return (
     <>
-      <h1 className="text-2xl">Kollégák</h1>
+      <header className="flex flex-col gap-1">
+        <h1 className="text-2xl font-semibold tracking-tight">Kollégák</h1>
+        <p className="text-sm text-text-secondary">
+          Ki mivel foglalkozik, és kinél van figyelmet igénylő fuvar.
+        </p>
+      </header>
       <Suspense fallback={<DispatcherBoardSkeleton />}>
         <Dispatchers searchParams={searchParams} />
       </Suspense>

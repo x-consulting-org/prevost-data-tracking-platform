@@ -3,13 +3,14 @@
 
 @import "tailwindcss";
 
-/* Tailwind is the layout utility layer; colours and fonts come from Carbon tokens. */
+/* Tailwind is the layout utility layer; neutrals and fonts come from Carbon tokens. */
 @theme inline {
   --font-sans: var(--font-plex-sans);
-  --font-mono: var(--font-plex-mono);
 
   --color-background: var(--cds-background);
   --color-layer: var(--cds-layer);
+  --color-layer-sunken: var(--cds-layer-02);
+  --color-layer-hover: var(--cds-layer-hover);
   --color-field: var(--cds-field);
   --color-border-subtle: var(--cds-border-subtle);
   --color-border-strong: var(--cds-border-strong);
@@ -20,15 +21,74 @@
   --color-link-primary: var(--cds-link-primary);
   --color-brand: var(--prevost-orange);
   --color-support-error: var(--cds-support-error);
-  --color-support-warning: var(--cds-support-warning);
   --color-support-success: var(--cds-support-success);
-  --color-support-info: var(--cds-support-info);
 
-  /* Carbon's breakpoints (md 672, lg 1056, xlg 1312, max 1584), so layout changes
-     happen where the UI Shell's do; below md is Carbon's sm. */
+  /* Carbon's breakpoints (md 672, lg 1056, xlg 1312, max 1584); below md is Carbon's sm. */
   --breakpoint-*: initial;
   --breakpoint-md: 42rem;
   --breakpoint-lg: 66rem;
   --breakpoint-xl: 82rem;
   --breakpoint-2xl: 99rem;
+}
+
+/* Colours that are not Carbon's: the dark sidebar and the shipment statuses. Each status has a
+   solid (dots, bars), a tint (lane and badge backgrounds) and an ink (text on the tint, 4.5:1+). */
+@theme {
+  --color-asphalt: #141820;
+  --color-asphalt-raised: #1f2531;
+  --color-asphalt-text: #c6ccd8;
+
+  --color-status-unhandled: #8a94a8;
+  --color-status-unhandled-tint: #eceef3;
+  --color-status-unhandled-ink: #444e61;
+  --color-status-organizing: #3d6fe0;
+  --color-status-organizing-tint: #e7eefc;
+  --color-status-organizing-ink: #1f4bb0;
+  --color-status-in-transit: #fbb727;
+  --color-status-in-transit-tint: #fdf2d8;
+  --color-status-in-transit-ink: #7a5200;
+  --color-status-completed: #1e9e6a;
+  --color-status-completed-tint: #e2f4ec;
+  --color-status-completed-ink: #11704a;
+  --color-status-cancelled: #b4bac6;
+  --color-status-cancelled-tint: #f0f1f4;
+  --color-status-cancelled-ink: #4f596b;
+
+  /* Alerts are red so they never read as the amber of shipments on the road. */
+  --color-attention: #e5484d;
+  --color-attention-tint: #fdecec;
+  --color-attention-ink: #a8242a;
+  --color-attention-on-dark: #ff9b9e;
+
+  --animate-enter: enter 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-ping-once: ping-once 900ms ease-out;
+
+  @keyframes enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
+  @keyframes ping-once {
+    from {
+      transform: scale(1);
+      opacity: 0.6;
+    }
+    to {
+      transform: scale(2.6);
+      opacity: 0;
+    }
+  }
+}
+
+/* The one non-user motion is the board's entrance; with reduced motion everything is static. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
 }

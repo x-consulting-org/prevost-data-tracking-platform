@@ -12,11 +12,22 @@ const dateTimeFormat = new Intl.DateTimeFormat(locale, {
   minute: "2-digit",
 });
 
+const timeFormat = new Intl.DateTimeFormat(locale, {
+  timeZone,
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
 const relativeTimeFormat = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
 
 /** "okt. 14. 08:00" in Budapest time. */
 export function formatDateTime(date: Date): string {
   return dateTimeFormat.format(date);
+}
+
+/** "08:00" in Budapest time. */
+export function formatTime(date: Date): string {
+  return timeFormat.format(date);
 }
 
 /** "6 óra múlva", "tegnap", "35 perccel ezelőtt", relative to `now`. */

@@ -25,9 +25,9 @@ import { ColumnResizeHandles } from "@/components/data-table/column-resize-handl
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { useFittedColumns, type FittableColumn } from "@/components/data-table/use-fitted-columns";
 import { AttentionIcon } from "@/components/shipments/alert-list";
-import { DispatcherTag } from "@/components/shipments/dispatcher-tag";
+import { DispatcherLink } from "@/components/shipments/dispatcher-link";
 import { ShipmentReferenceButton } from "@/components/shipments/shipment-reference-button";
-import { ShipmentStatusTag } from "@/components/shipments/status-tag";
+import { ShipmentStatusBadge } from "@/components/shipments/status-badge";
 import { columnLabel, dataTableFeatures, sortActionLabel } from "@/lib/data-table";
 import { formatDateTime } from "@/lib/format";
 import { pageSizeOptions } from "@/lib/pagination";
@@ -42,9 +42,11 @@ type ShipmentColumn = FittableColumn<ShipmentCard> & {
   render?: (shipment: ShipmentCard) => ReactNode;
 };
 
-// Carbon `sm` cells have 16px padding on each side; tags add their own padding.
+// Carbon `sm` cells have 16px padding on each side. The status badge adds its padding and dot,
+// the dispatcher link its avatar and padding.
 const cellPadding = 32;
-const tagChrome = cellPadding + 20;
+const badgeChrome = cellPadding + 30;
+const dispatcherChrome = cellPadding + 36;
 
 const dateTimeText = (date: Date | null) =>
   date === null ? "nincs megadva" : formatDateTime(date);
@@ -55,8 +57,9 @@ const shipmentColumns: readonly ShipmentColumn[] = [
     id: "reference",
     header: "Referencia",
     text: (shipment) => shipment.reference,
-    render: (shipment) => <ShipmentReferenceButton shipment={shipment} />,
-    font: "mono",
+    // Stretched over the row, so the whole row opens the detail.
+    render: (shipment) => <ShipmentReferenceButton shipment={shipment} stretched />,
+    weight: "semibold",
     sortable: true,
     chrome: cellPadding,
     minSize: 120,
@@ -66,7 +69,7 @@ const shipmentColumns: readonly ShipmentColumn[] = [
     id: "customer",
     header: "Megbízó",
     text: (shipment) => shipment.customer.name,
-    font: "sans",
+    weight: "regular",
     sortable: true,
     chrome: cellPadding,
     minSize: 140,
@@ -76,7 +79,7 @@ const shipmentColumns: readonly ShipmentColumn[] = [
     id: "pickupAt",
     header: "Felrakás",
     text: (shipment) => dateTimeText(shipment.pickupAt),
-    font: "sans",
+    weight: "regular",
     sortable: true,
     chrome: cellPadding,
     minSize: 112,
@@ -86,7 +89,7 @@ const shipmentColumns: readonly ShipmentColumn[] = [
     id: "origin",
     header: "Honnan",
     text: (shipment) => `${shipment.originCity} ${shipment.originCountry}`,
-    font: "sans",
+    weight: "regular",
     sortable: false,
     chrome: cellPadding,
     minSize: 120,
@@ -96,7 +99,7 @@ const shipmentColumns: readonly ShipmentColumn[] = [
     id: "deliveryAt",
     header: "Lerakás",
     text: (shipment) => dateTimeText(shipment.deliveryAt),
-    font: "sans",
+    weight: "regular",
     sortable: true,
     chrome: cellPadding,
     minSize: 112,
@@ -106,7 +109,7 @@ const shipmentColumns: readonly ShipmentColumn[] = [
     id: "destination",
     header: "Hová",
     text: (shipment) => `${shipment.destinationCity} ${shipment.destinationCountry}`,
-    font: "sans",
+    weight: "regular",
     sortable: false,
     chrome: cellPadding,
     minSize: 120,
@@ -116,10 +119,10 @@ const shipmentColumns: readonly ShipmentColumn[] = [
     id: "status",
     header: "Státusz",
     text: (shipment) => shipmentStatusLabel[shipment.status],
-    render: (shipment) => <ShipmentStatusTag status={shipment.status} />,
-    font: "sans",
+    render: (shipment) => <ShipmentStatusBadge status={shipment.status} />,
+    weight: "regular",
     sortable: true,
-    chrome: tagChrome,
+    chrome: badgeChrome,
     minSize: 120,
     maxSize: 200,
   },
@@ -127,10 +130,12 @@ const shipmentColumns: readonly ShipmentColumn[] = [
     id: "dispatcher",
     header: "Kolléga",
     text: (shipment) => shipment.dispatcher.name,
-    render: (shipment) => <DispatcherTag dispatcher={shipment.dispatcher} />,
-    font: "sans",
+    render: (shipment) => (
+      <DispatcherLink dispatcher={shipment.dispatcher} className="relative z-10 -ml-0.5" />
+    ),
+    weight: "regular",
     sortable: true,
-    chrome: tagChrome,
+    chrome: dispatcherChrome,
     minSize: 120,
     maxSize: 220,
   },
@@ -138,7 +143,7 @@ const shipmentColumns: readonly ShipmentColumn[] = [
     id: "tportTripId",
     header: "T-Port járat",
     text: (shipment) => shipment.tportTripId ?? "nincs",
-    font: "mono",
+    weight: "regular",
     sortable: false,
     chrome: cellPadding,
     minSize: 112,
@@ -155,7 +160,7 @@ const shipmentColumns: readonly ShipmentColumn[] = [
           <span className="truncate">{shipment.alerts.map(describeShipmentAlert).join("; ")}</span>
         </span>
       ),
-    font: "sans",
+    weight: "regular",
     sortable: false,
     chrome: cellPadding + 24,
     minSize: 160,
@@ -166,8 +171,8 @@ const shipmentColumns: readonly ShipmentColumn[] = [
 const helper = createColumnHelper<typeof dataTableFeatures, ShipmentCard>();
 const emptyRows: ShipmentCard[] = [];
 
-// Cells render in the font they were measured in.
-const fontClassName = { sans: "font-sans", mono: "font-mono" } as const;
+// Cells render in the weight they were measured in.
+const weightClassName = { regular: "font-normal", semibold: "font-semibold" } as const;
 
 const carbonSortDirection = { asc: "ASC", desc: "DESC" } as const;
 
@@ -203,7 +208,7 @@ export function ShipmentsTable({ filter }: { filter: ShipmentFilter }) {
         id: spec.id,
         header: spec.header,
         cell: ({ row }) => (
-          <span className={fontClassName[spec.font]}>
+          <span className={weightClassName[spec.weight]}>
             {spec.render ? spec.render(row.original) : spec.text(row.original)}
           </span>
         ),
@@ -281,7 +286,7 @@ export function ShipmentsTable({ filter }: { filter: ShipmentFilter }) {
                 </TableRow>
               ) : (
                 table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id}>
+                  <TableRow key={row.id} className="relative cursor-pointer">
                     {row.getAllCells().map((cell) => (
                       <TableCell key={cell.id} className="truncate" title={String(cell.getValue())}>
                         <FlexRender cell={cell} />
