@@ -21,6 +21,10 @@ export const sortableShipmentColumns = [
 
 export type SortableShipmentColumn = (typeof sortableShipmentColumns)[number];
 
+export function isSortableShipmentColumn(id: string): id is SortableShipmentColumn {
+  return (sortableShipmentColumns as readonly string[]).includes(id);
+}
+
 export const shipmentPageInputSchema = paginationInputSchema.extend({
   sorting: z
     .array(z.object({ id: z.enum(sortableShipmentColumns), desc: z.boolean() }))
@@ -37,10 +41,13 @@ export const shipmentViews = ["kanban", "table"] as const;
 
 export type ShipmentView = (typeof shipmentViews)[number];
 
+/** The view a bare `/shipments` URL shows; it is left out of the URL. */
+export const defaultShipmentView: ShipmentView = "kanban";
+
 /** Search params of the Fuvarok screen; parsed into the same filter the actions take. */
 export const shipmentsSearchParamsSchema = z
   .object({
-    view: z.enum(shipmentViews).default("kanban"),
+    view: z.enum(shipmentViews).default(defaultShipmentView),
     dispatcher: z.uuid().optional(),
     next24h: z.stringbool().default(false),
   })

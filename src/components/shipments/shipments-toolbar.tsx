@@ -1,19 +1,31 @@
 "use client";
 
-import { Dropdown, Toggle } from "@carbon/react";
+import { ContentSwitcher, Dropdown, Switch, Toggle } from "@carbon/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { ShipmentFilter } from "@/lib/shipments/schemas";
+import {
+  defaultShipmentView,
+  shipmentViews,
+  type ShipmentFilter,
+  type ShipmentView,
+} from "@/lib/shipments/schemas";
 import type { DispatcherSummary } from "@/server/shipments";
 
 type DispatcherOption = { id: string | null; name: string };
 
 const allDispatchers: DispatcherOption = { id: null, name: "Minden kolléga" };
 
+const viewLabel = { kanban: "Kanban", table: "Tábla" } as const satisfies Record<
+  ShipmentView,
+  string
+>;
+
 /** View and filter controls. Their state is the URL, so the server renders the result. */
 export function ShipmentsToolbar({
+  view,
   filter,
   dispatchers,
 }: {
+  view: ShipmentView;
   filter: ShipmentFilter;
   dispatchers: DispatcherSummary[];
 }) {
@@ -37,6 +49,18 @@ export function ShipmentsToolbar({
 
   return (
     <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
+      <ContentSwitcher
+        size="md"
+        className="w-48"
+        selectedIndex={shipmentViews.indexOf(view)}
+        onChange={({ name }) =>
+          setParam("view", name === defaultShipmentView ? null : String(name))
+        }
+      >
+        {shipmentViews.map((option) => (
+          <Switch key={option} name={option} text={viewLabel[option]} />
+        ))}
+      </ContentSwitcher>
       <div className="w-64">
         <Dropdown<DispatcherOption>
           id="dispatcher-filter"
