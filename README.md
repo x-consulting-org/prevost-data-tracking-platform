@@ -99,14 +99,15 @@ prettier.config.mjs
 ### Data access: server actions + TanStack Query
 
 1. Put all server actions in `src/actions/` with `"use server"` at the top of the file.
-2. Validate action input with **Zod** (`parseActionInput` in `src/actions/helpers/parse.ts`, or parse next to the action).
-3. **Server Components** call server actions **directly** with `await`.
-4. **Client Components** load and mutate server data only through **TanStack Query**:
+2. Every action does three things in this order: `await requirePrincipal()` (authenticate), parse its input with **Zod** (`parseActionInput` in `src/actions/helpers/parse.ts`), then delegate. No queries or business logic in the action.
+3. Prisma queries and read models live in server-only modules under `src/server/` (`import "server-only"`, explicit `select` and `orderBy` with an `id` tiebreaker). Pure domain rules live in `src/lib/<domain>/` so client code can use them too. ESLint stops `src/app` and `src/components` from importing `src/server/*` (types excepted), `@/lib/prisma` or the Prisma client.
+4. **Server Components** call server actions **directly** with `await`.
+5. **Client Components** load and mutate server data only through **TanStack Query**:
    - `useQuery` / `useSuspenseQuery` → server action as `queryFn`
    - `useMutation` → server action as `mutationFn`, then invalidate via query keys
-5. Do **not** add Route Handlers for ordinary app CRUD when a server action exists.
-6. Keep query keys in `src/lib/query-keys.ts` (hierarchical factory). Invalidate by prefix.
-7. Put every server-owned table slice (`pagination`, `sorting`, filters) in the **query key**. Prefer `placeholderData: keepPreviousData` for page transitions.
+6. Do **not** add Route Handlers for ordinary app CRUD when a server action exists.
+7. Keep query keys in `src/lib/query-keys.ts` (hierarchical factory). Invalidate by prefix.
+8. Put every server-owned table slice (`pagination`, `sorting`, filters) in the **query key**. Prefer `placeholderData: keepPreviousData` for page transitions.
 
 ```tsx
 // Client — query
@@ -150,7 +151,7 @@ Follow TanStack Table **v9** APIs (`useTable`, `tableFeatures`, feature plugins)
 | `pageCount` | derived page count |
 
 Helpers: `src/lib/pagination.ts` (`listQueryInputSchema`, `toSkipTake`, `toPaginatedResult`).  
-Reference action: `src/actions/example.ts`.
+Reference action: `listShipmentsPage` in `src/actions/shipments.ts`.
 
 ```tsx
 "use client";

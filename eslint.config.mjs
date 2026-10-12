@@ -59,6 +59,32 @@ const eslintConfig = defineConfig([
     },
   },
   {
+    // Layer boundary: routes and components reach data only through server actions.
+    // Server read-model types may still be imported as types.
+    files: ["src/app/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            { name: "@/lib/prisma", message: "Query data in src/server/* behind a server action." },
+            {
+              name: "@/generated/prisma/client",
+              message: "Use @/generated/prisma/enums; the Prisma client is server-only.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["@/server/*"],
+              allowTypeImports: true,
+              message: "Call a server action from src/actions/ instead.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // Config / tooling files: keep lint light.
     files: [
       "*.config.{js,mjs,cjs,ts,mts,cts}",
