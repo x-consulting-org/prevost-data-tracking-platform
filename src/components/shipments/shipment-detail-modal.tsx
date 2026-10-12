@@ -17,6 +17,7 @@ import { CountryCode } from "@/components/shipments/country-code";
 import { DispatcherLink } from "@/components/shipments/dispatcher-link";
 import {
   closeShipmentDetail,
+  shipmentDetailLauncher,
   shipmentDetailParam,
 } from "@/components/shipments/shipment-detail-url";
 import { ShipmentStatusBadge, statusStyle } from "@/components/shipments/status-badge";
@@ -40,6 +41,7 @@ export function ShipmentDetailModal() {
     <ComposedModal
       open={shipmentId !== null}
       onClose={closeShipmentDetail}
+      launcherButtonRef={shipmentDetailLauncher}
       size="lg"
       aria-label="Fuvar részletei"
     >
@@ -60,6 +62,10 @@ function ShipmentDetailContent({ id }: { id: string }) {
   if (!isValidId || query.data === null) {
     return <DetailFrame title="Fuvar">Ez a fuvar nem található.</DetailFrame>;
   }
+  // Data already on screen stays there if a background refresh fails.
+  if (query.data !== undefined) {
+    return <ShipmentDetailBody shipment={query.data} />;
+  }
   if (query.isError) {
     return (
       <DetailFrame title="Fuvar">
@@ -76,15 +82,11 @@ function ShipmentDetailContent({ id }: { id: string }) {
       </DetailFrame>
     );
   }
-  if (query.data === undefined) {
-    return (
-      <DetailFrame title="Fuvar">
-        <SkeletonText paragraph lineCount={6} />
-      </DetailFrame>
-    );
-  }
-
-  return <ShipmentDetailBody shipment={query.data} />;
+  return (
+    <DetailFrame title="Fuvar">
+      <SkeletonText paragraph lineCount={6} />
+    </DetailFrame>
+  );
 }
 
 function DetailFrame({ title, children }: { title: string; children: ReactNode }) {

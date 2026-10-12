@@ -25,4 +25,15 @@ describe("formatRelative", () => {
     expect(formatRelative(hoursFromNow(-3), now)).toBe("3 órával ezelőtt");
     expect(formatRelative(hoursFromNow(24), now)).toBe("holnap");
   });
+
+  it("counts Budapest calendar days from a day away", () => {
+    // Monday 22:00 to Wednesday 06:00 in Budapest is 32 hours, but two days.
+    const mondayEvening = new Date("2026-10-12T20:00:00Z");
+    expect(formatRelative(new Date("2026-10-14T04:00:00Z"), mondayEvening)).toBe("holnapután");
+    expect(formatRelative(new Date("2026-10-10T20:00:00Z"), mondayEvening)).toBe("tegnapelőtt");
+  });
+
+  it("switches to hours instead of showing 60 minutes", () => {
+    expect(formatRelative(hoursFromNow(59.6 / 60), now)).toBe("1 óra múlva");
+  });
 });

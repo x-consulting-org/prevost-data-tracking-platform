@@ -14,7 +14,7 @@ Package manager: **pnpm**.
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 20.19+ (Prisma 7's minimum)
 - pnpm (`packageManager` is pinned in `package.json`)
 - Docker (for local Postgres)
 
@@ -24,26 +24,19 @@ Package manager: **pnpm**.
 pnpm install
 ```
 
-Create a `.env` in the project root with at least:
+Copy `.env.example` to `.env` and fill it in. `src/instrumentation.ts` checks these settings when the server starts and refuses to start with a missing or malformed one (in production `BETTER_AUTH_URL` must be https, or the session cookies lose `Secure`).
 
-```bash
-DATABASE_URL="postgresql://prevost:prevost@localhost:5432/prevost_tracking"
-BETTER_AUTH_SECRET="at-least-32-random-characters"
-BETTER_AUTH_URL="http://localhost:3000"
-# Password of the seeded demo user (demo@prevost.example)
-DEMO_USER_PASSWORD="choose-a-password"
-```
+`pnpm install` also generates the Prisma client (`postinstall`).
 
 Start Postgres, generate the Prisma client, apply migrations and load the demo data:
 
 ```bash
 pnpm db:up
-pnpm prisma:generate
 pnpm prisma:migrate
 pnpm db:seed
 ```
 
-`pnpm db:seed` replaces all shipment data with a fresh, deterministic demo set (times are relative to the run) and creates the demo user if it is missing. Prisma 7 does not run it automatically after migrations.
+`pnpm db:seed` replaces all shipment data with a fresh, deterministic demo set (times are relative to the run) and creates or updates the demo user with `DEMO_USER_PASSWORD`. Prisma 7 does not run it automatically after migrations. Never run it against a database that holds real shipments.
 
 Run the app:
 
@@ -52,6 +45,15 @@ pnpm dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+## Production
+
+1. Set the variables from `.env.example` in the environment, plus `IBM_TELEMETRY_DISABLED=true`. `DATABASE_URL` is needed at build time too, because building loads the auth route; no connection is made then.
+2. `pnpm install --frozen-lockfile && pnpm build`.
+3. Before each start with new code: `pnpm db:deploy`. Then `pnpm start`.
+4. For the demo data, run `pnpm db:seed` once against that database.
+
+Every response carries security headers (CSP framing and form rules, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, HSTS; `next.config.ts`). better-auth limits sign-in attempts per client IP in production, in memory per instance; behind a proxy that rewrites `X-Forwarded-For`, set `advanced.ipAddress` in `src/lib/auth.ts` for that proxy, and use database storage for the limits with more than one instance.
 
 ## Scripts
 
@@ -64,7 +66,8 @@ Open [http://localhost:3000](http://localhost:3000).
 | `pnpm test`                         | Vitest (pure domain modules)                               |
 | `pnpm db:up` / `pnpm db:down`       | Start/stop Postgres via Docker Compose                     |
 | `pnpm prisma:generate`              | Generate Prisma Client → `src/generated/prisma`            |
-| `pnpm prisma:migrate`               | Run `prisma migrate dev`                                   |
+| `pnpm prisma:migrate`               | Run `prisma migrate dev` (development only)                |
+| `pnpm db:deploy`                    | Apply committed migrations (`prisma migrate deploy`)       |
 | `pnpm db:seed`                      | Replace shipment data with the demo set (`prisma/seed.ts`) |
 | `pnpm prisma:studio`                | Prisma Studio                                              |
 | `pnpm auth:generate`                | Sync better-auth models into `prisma/schema.prisma`        |
@@ -77,7 +80,8 @@ src/
     helpers/           # Shared action helpers (e.g. Zod parse)
   app/
     (auth)/login/      # Sign-in page
-    (app)/             # Signed-in shell: Fuvarok (shipments/), Kollégák (dispatchers/)
+    (app)/             # Signed-in shell: Fuvarok (shipments/), Kollégák (dispatchers/), error and not-found inside the shell
+    error.tsx, not-found.tsx, global-error.tsx  # Failures outside the shell, unknown URLs, root layout failure
     api/auth/          # better-auth catch-all handler
     carbon.scss        # Carbon theme (Prévost palette roles, rounded controls)
     _carbon-components.scss  # The Carbon component styles the app renders
@@ -85,8 +89,9 @@ src/
     auth/              # Login form
     data-table/        # Carbon pagination, column fitting and resizing for TanStack Table
     dispatchers/       # Kollégák board
+    feedback/          # Error and not-found messages shared by the boundaries
     providers/         # QueryProvider
-    shell/             # Asphalt sidebar / top bar: nav, live refresh, sync status, user menu
+    shell/             # Dark sidebar / top bar: nav, live refresh, sync status, user menu
     shipments/         # Kanban lanes, table, cards, status badges, shipment detail
   lib/
     auth.ts
@@ -99,6 +104,7 @@ src/
     query-keys.ts      # TanStack Query key factory
     shipments/         # Pure domain rules: statuses, alerts, grouping, progress, schemas, sources
   server/              # Server-only read models and identity (Prisma lives here)
+  instrumentation.ts   # Checks the environment once at server start
   proxy.ts             # Redirects signed-out requests to /login
 prisma/                # Schema, migrations, demo seed
 docs/adr/              # Architecture decisions
@@ -123,7 +129,7 @@ prettier.config.mjs
 6. Do **not** add Route Handlers for ordinary app CRUD when a server action exists.
 7. Keep query keys in `src/lib/query-keys.ts` (hierarchical factory). Invalidate by prefix.
 8. Put every server-owned table slice (`pagination`, `sorting`, filters) in the **query key**. Prefer `placeholderData: keepPreviousData` for page transitions.
-9. Screen state a user would reload or share (view, filters, the focused dispatcher, the open shipment) lives in the URL. Pages parse their search params with a Zod schema and links build them with the matching href function, side by side in `src/lib/shipments/schemas.ts`; invalid input, including an unknown dispatcher, answers 404. Client-only state such as `?shipment=<id>` is set through the history API (`src/components/shipments/shipment-detail-url.ts`), which updates `useSearchParams` without a server round trip.
+9. Screen state a user would reload or share (view, filters, the focused dispatcher, the open shipment) lives in the URL. Pages parse their search params with a Zod schema and links build them with the matching href function, side by side in `src/lib/shipments/schemas.ts`; invalid input, including an unknown dispatcher, shows the not-found screen (the page is already streaming, so the status stays 200 with a `noindex` tag). Client-only state such as `?shipment=<id>` is set through the history API (`src/components/shipments/shipment-detail-url.ts`), which updates `useSearchParams` without a server round trip.
 
 ```tsx
 // Client — query
@@ -153,7 +159,7 @@ Optional: hydrate with `useQuery({ ..., initialData })` from an RSC.
 Follow TanStack Table **v9** APIs (`useTable`, `tableFeatures`, feature plugins)—not the v8 `useReactTable` API.
 
 1. Every table uses `@tanstack/react-table` with `manualPagination: true` (and `manualSorting: true` when sorting is server-side).
-2. Register features via `dataTableFeatures` in `src/lib/data-table.ts` (pagination + sorting), or extend that set.
+2. Register features via `dataTableFeatures` in `src/lib/data-table.ts` (pagination, sorting, column sizing and resizing), or extend that set.
 3. Every table (and other long paged lists) must render **Carbon Pagination** through `DataTablePagination` (`src/components/data-table/data-table-pagination.tsx`). Its page sizes come from `pageSizeOptions` in `src/lib/pagination.ts`, which also caps `pageSize` on the server.
 4. List server actions accept TanStack-aligned input and return `PaginatedResult<T>`:
 
@@ -248,7 +254,8 @@ export function ExampleForm() {
 - The palette (sunflower gold, forest moss, muted olive, onyx) is defined once, in `src/app/globals.css`, with what it means in the app: the dark onyx sidebar, the shipment statuses (`status-<name>`, `-tint`, `-ink`; mapped to classes in `components/shipments/status-badge.tsx`: onyx unhandled, olive organizing, gold on the road, moss completed) and the attention red (`#D33F22`, text `#A92C1C`) for errors and alerts. Gold means "on the road", so alerts are red, never gold.
 - Fonts: IBM Plex Sans through `next/font` in `src/app/layout.tsx`; Carbon reads it via `--font-plex-sans`.
 - Tailwind is the layout utility layer. `src/app/globals.css` maps its colours to Carbon tokens (`bg-layer`, `text-text-secondary`, `border-border-subtle`, …) and orders the cascade layers so utilities win over Carbon styles.
-- Motion: one entrance per board (cards arrive lane by lane), hover lift on cards, and a ping on the live-refresh dot when the screen's data reloads (every minute while the tab is visible). `prefers-reduced-motion` turns all of it off.
+- Motion: one entrance per board (cards arrive lane by lane), hover lift on cards, and a single ping on the refresh dot each time the screen's data reloads (every minute while the tab is visible). There is no continuous "live" pulse: the dot only says when the data was last read. `prefers-reduced-motion` turns all of it off.
+- Phones: the kanban shows one lane at a time, picked in a select above it, and the page never scrolls sideways; tables scroll inside their own container.
 - Tables: Carbon `Table*` components + TanStack Table v9 + `DataTablePagination`, with content-fitted, resizable columns (see the table conventions above).
 - `@carbon/react` depends on `@ibm/telemetry-js`. Its postinstall does not run here because pnpm only runs build scripts listed in `onlyBuiltDependencies`; keep it off that list, and set `IBM_TELEMETRY_DISABLED=true` in CI and container environments.
 

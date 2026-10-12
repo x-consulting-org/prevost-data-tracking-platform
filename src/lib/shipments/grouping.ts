@@ -1,6 +1,6 @@
 import type { ShipmentStatus } from "@/generated/prisma/enums";
 import type { ShipmentAlert } from "@/lib/shipments/alerts";
-import { boardStatuses, type BoardStatus } from "@/lib/shipments/status";
+import { boardStatuses } from "@/lib/shipments/status";
 
 type GroupableShipment = {
   status: ShipmentStatus;
@@ -9,7 +9,7 @@ type GroupableShipment = {
 };
 
 export type StatusColumn<TShipment> = {
-  status: BoardStatus;
+  status: ShipmentStatus;
   shipments: TShipment[];
   /** Shipments in this column with at least one alert. */
   attentionCount: number;
@@ -23,13 +23,14 @@ export type DispatcherColumn<TDispatcher, TShipment> = {
 };
 
 /**
- * One column per board status, in board order, keeping the input order inside each column.
- * Shipments whose status is not a board status (CANCELLED) belong to no column.
+ * One column per status in `statuses`, in that order, keeping the input order inside each
+ * column. Shipments whose status is not among them belong to no column.
  */
 export function groupByStatus<TShipment extends GroupableShipment>(
   shipments: readonly TShipment[],
+  statuses: readonly ShipmentStatus[],
 ): StatusColumn<TShipment>[] {
-  return boardStatuses.map((status) => {
+  return statuses.map((status) => {
     const inColumn = shipments.filter((shipment) => shipment.status === status);
     return {
       status,
@@ -50,6 +51,7 @@ export function groupByDispatcher<
   return dispatchers.map((dispatcher) => {
     const statusColumns = groupByStatus(
       shipments.filter((shipment) => shipment.dispatcherId === dispatcher.id),
+      boardStatuses,
     );
     return {
       dispatcher,

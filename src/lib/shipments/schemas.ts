@@ -8,12 +8,14 @@ export const shipmentFilterSchema = z.object({
    * already late is not "upcoming"; the alerts flag it instead.
    */
   pickupWithin24h: z.boolean().default(false),
+  /** Also shipments cancelled within the last `closedVisibleDays`. */
+  includeCancelled: z.boolean().default(false),
 });
 
 export type ShipmentFilter = z.infer<typeof shipmentFilterSchema>;
 
 /** Table columns the server knows how to sort by. */
-export const sortableShipmentColumns = [
+const sortableShipmentColumns = [
   "reference",
   "customer",
   "pickupAt",
@@ -43,7 +45,7 @@ export const shipmentViews = ["kanban", "table"] as const;
 export type ShipmentView = (typeof shipmentViews)[number];
 
 /** The view a bare `/shipments` URL shows; it is left out of the URL. */
-export const defaultShipmentView: ShipmentView = "kanban";
+const defaultShipmentView: ShipmentView = "kanban";
 
 // Each screen's URL is parsed by its schema and built by its href function, side by side,
 // so the param names and defaults have one home (the round trip is tested).
@@ -64,10 +66,15 @@ export const shipmentsSearchParamsSchema = z
     view: z.enum(shipmentViews).default(defaultShipmentView),
     dispatcher: z.uuid().optional(),
     next24h: z.stringbool().default(false),
+    cancelled: z.stringbool().default(false),
   })
-  .transform(({ view, dispatcher, next24h }): ShipmentsSearchParams => ({
+  .transform(({ view, dispatcher, next24h, cancelled }): ShipmentsSearchParams => ({
     view,
-    filter: { dispatcherId: dispatcher, pickupWithin24h: next24h } satisfies ShipmentFilter,
+    filter: {
+      dispatcherId: dispatcher,
+      pickupWithin24h: next24h,
+      includeCancelled: cancelled,
+    } satisfies ShipmentFilter,
   }));
 
 /** Defaults are left out, so the bare `/shipments` URL is the default screen. */
@@ -76,6 +83,7 @@ export function shipmentsHref({ view, filter }: ShipmentsSearchParams): string {
   if (view !== defaultShipmentView) params.set("view", view);
   if (filter.dispatcherId !== undefined) params.set("dispatcher", filter.dispatcherId);
   if (filter.pickupWithin24h) params.set("next24h", "true");
+  if (filter.includeCancelled) params.set("cancelled", "true");
   const query = params.toString();
   return query === "" ? "/shipments" : `/shipments?${query}`;
 }

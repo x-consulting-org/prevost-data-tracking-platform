@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: "Belépés",
 };
 
-/** The board's route motif drawn large: a pickup, a road in the brand orange, a delivery. */
+/** The board's route motif drawn large: a pickup, a road in the brand gold, a delivery. */
 function RouteMotif() {
   return (
     <svg

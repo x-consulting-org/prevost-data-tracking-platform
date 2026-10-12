@@ -24,7 +24,7 @@ export function ShipmentReferenceButton({
       type="button"
       aria-haspopup="dialog"
       className={`shrink-0 cursor-pointer text-sm font-semibold text-text-primary tabular-nums hover:text-link-primary ${stretched ? stretchedClassName : "focus-visible:outline-2 focus-visible:outline-focus"}`}
-      onClick={() => openShipmentDetail(shipment.id)}
+      onClick={(event) => openShipmentDetail(shipment.id, event.currentTarget)}
     >
       {shipment.reference}
     </button>

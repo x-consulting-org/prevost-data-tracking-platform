@@ -1,9 +1,7 @@
-"use client";
-
 import { ArrowRight } from "@carbon/icons-react";
 import NextLink from "next/link";
-import { useEffect, useRef } from "react";
 import { Avatar } from "@/components/avatar";
+import { ScrollIntoView } from "@/components/dispatchers/scroll-into-view";
 import { AttentionCount, AttentionIcon } from "@/components/shipments/alert-list";
 import { ShipmentReferenceButton } from "@/components/shipments/shipment-reference-button";
 import { StatusDot, statusStyle } from "@/components/shipments/status-badge";
@@ -84,7 +82,7 @@ function ShipmentRow({ shipment, now }: { shipment: ShipmentCard; now: Date }) {
 
 /**
  * One card per dispatcher. `focusedDispatcherId` comes from the URL (a dispatcher link on a
- * shipment leads here); that card is ringed in the brand orange and scrolled into view.
+ * shipment leads here); that card is ringed in the brand gold and scrolled into view.
  */
 export function DispatcherBoard({
   board,
@@ -93,23 +91,19 @@ export function DispatcherBoard({
   board: DispatcherBoardData;
   focusedDispatcherId: string | undefined;
 }) {
-  const focusedRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    focusedRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
-  }, [focusedDispatcherId]);
-
   return (
     <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
       {board.columns.map(({ dispatcher, statusColumns, shipmentCount, attentionCount }, index) => (
         <section
           key={dispatcher.id}
-          ref={dispatcher.id === focusedDispatcherId ? focusedRef : undefined}
           aria-labelledby={`dispatcher-${dispatcher.id}-name`}
           aria-current={dispatcher.id === focusedDispatcherId ? "true" : undefined}
-          className="flex animate-enter scroll-mt-20 flex-col gap-4 rounded-2xl border border-border-subtle bg-layer p-4 aria-[current]:border-brand aria-[current]:ring-4 aria-[current]:ring-brand/30 lg:scroll-mt-8"
+          className="relative flex animate-enter flex-col gap-4 rounded-2xl border border-border-subtle bg-layer p-4 aria-[current]:border-brand aria-[current]:ring-4 aria-[current]:ring-brand/30 lg:scroll-mt-8"
           style={{ animationDelay: `${index * 60}ms` }}
         >
+          {dispatcher.id === focusedDispatcherId ? (
+            <ScrollIntoView className="absolute top-0 scroll-mt-20 lg:scroll-mt-8" />
+          ) : null}
           <header className="flex items-center gap-3">
             <Avatar person={dispatcher} size="lg" />
             <div className="flex min-w-0 flex-1 flex-col">
@@ -161,7 +155,11 @@ export function DispatcherBoard({
           <NextLink
             href={shipmentsHref({
               view: "kanban",
-              filter: { dispatcherId: dispatcher.id, pickupWithin24h: false },
+              filter: {
+                dispatcherId: dispatcher.id,
+                pickupWithin24h: false,
+                includeCancelled: false,
+              },
             })}
             className="group inline-flex w-fit items-center gap-1.5 text-sm font-medium text-link-primary focus-visible:outline-2 focus-visible:outline-focus"
           >

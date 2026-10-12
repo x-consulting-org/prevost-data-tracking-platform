@@ -1,6 +1,6 @@
 import { ShipmentStatus } from "@/generated/prisma/enums";
 
-/** Board column order. CANCELLED is not a column, and the demo does not show cancelled shipments. */
+/** Board column order. CANCELLED gets a column only when the filter asks for it, last. */
 export const boardStatuses = [
   ShipmentStatus.UNHANDLED,
   ShipmentStatus.ORGANIZING,
@@ -8,10 +8,17 @@ export const boardStatuses = [
   ShipmentStatus.COMPLETED,
 ] as const satisfies readonly ShipmentStatus[];
 
-export type BoardStatus = (typeof boardStatuses)[number];
+/** The columns of a status board, with or without the cancelled shipments. */
+export function boardStatusesFor({
+  includeCancelled,
+}: {
+  includeCancelled: boolean;
+}): readonly ShipmentStatus[] {
+  return includeCancelled ? [...boardStatuses, ShipmentStatus.CANCELLED] : boardStatuses;
+}
 
-/** Completed shipments stay on the boards for this many days after completion. */
-export const completedVisibleDays = 7;
+/** Completed and cancelled shipments stay on the boards for this many days after closing. */
+export const closedVisibleDays = 7;
 
 export const shipmentStatusLabel = {
   UNHANDLED: "Kezeletlen igény",

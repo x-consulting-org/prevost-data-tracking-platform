@@ -17,7 +17,7 @@ import type {
   SortableShipmentColumn,
 } from "@/lib/shipments/schemas";
 import { externalSources } from "@/lib/shipments/sources";
-import { boardStatuses, completedVisibleDays } from "@/lib/shipments/status";
+import { boardStatuses, boardStatusesFor, closedVisibleDays } from "@/lib/shipments/status";
 import { dayMs } from "@/lib/time";
 
 const shipmentCardSelect = {
@@ -72,11 +72,14 @@ export type SyncState =
   | { status: "never_synced"; source: DataSource }
   | { status: "synced"; source: DataSource; lastSyncedAt: Date };
 
+/** The last key of every ordering, so rows with equal values keep a stable order. */
+const idTiebreaker = { id: "asc" } satisfies Prisma.ShipmentOrderByWithRelationInput;
+
 /** Board order: soonest pickup first, shipments without one last. `id` makes it total. */
 const boardOrderBy = [
   { pickupAt: { sort: "asc", nulls: "last" } },
   { requestedAt: "asc" },
-  { id: "asc" },
+  idTiebreaker,
 ] satisfies Prisma.ShipmentOrderByWithRelationInput[];
 
 const sortableColumnOrderBy = {
@@ -92,12 +95,13 @@ const sortableColumnOrderBy = {
 >;
 
 /**
- * Open shipments plus those completed within the last `completedVisibleDays`. The boards load
+ * Open shipments plus those completed (and, when the filter asks, cancelled) within the last
+ * `closedVisibleDays`. The boards load
  * all of them unpaged: phase 0 has tens of open shipments per dispatcher, and a larger
  * volume needs per-column paging before it goes live.
  */
 function boardWhere(filter: ShipmentFilter, now: Date): Prisma.ShipmentWhereInput {
-  const completedSince = new Date(now.getTime() - completedVisibleDays * dayMs);
+  const closedSince = new Date(now.getTime() - closedVisibleDays * dayMs);
 
   return {
     dispatcherId: filter.dispatcherId,
@@ -106,7 +110,10 @@ function boardWhere(filter: ShipmentFilter, now: Date): Prisma.ShipmentWhereInpu
       : undefined,
     OR: [
       { status: { in: boardStatuses.filter((status) => status !== ShipmentStatus.COMPLETED) } },
-      { status: ShipmentStatus.COMPLETED, statusChangedAt: { gte: completedSince } },
+      { status: ShipmentStatus.COMPLETED, statusChangedAt: { gte: closedSince } },
+      ...(filter.includeCancelled
+        ? [{ status: ShipmentStatus.CANCELLED, statusChangedAt: { gte: closedSince } }]
+        : []),
     ],
   };
 }
@@ -124,7 +131,10 @@ export async function findStatusBoard(filter: ShipmentFilter, now: Date): Promis
 
   return {
     generatedAt: now,
-    columns: groupByStatus(shipments.map((shipment) => withAlerts(shipment, now))),
+    columns: groupByStatus(
+      shipments.map((shipment) => withAlerts(shipment, now)),
+      boardStatusesFor(filter),
+    ),
   };
 }
 
@@ -132,7 +142,7 @@ export async function findDispatcherBoard(now: Date): Promise<DispatcherBoard> {
   const [dispatchers, shipments] = await Promise.all([
     findDispatchers(),
     prisma.shipment.findMany({
-      where: boardWhere({ pickupWithin24h: false }, now),
+      where: boardWhere({ pickupWithin24h: false, includeCancelled: false }, now),
       select: shipmentCardSelect,
       orderBy: boardOrderBy,
     }),
@@ -154,7 +164,7 @@ export async function listShipments(
   const where = boardWhere(filter, now);
   const [sort] = sorting;
   const orderBy = sort
-    ? [...sortableColumnOrderBy[sort.id](sort.desc ? "desc" : "asc"), { id: "asc" as const }]
+    ? [...sortableColumnOrderBy[sort.id](sort.desc ? "desc" : "asc"), idTiebreaker]
     : boardOrderBy;
 
   const [shipments, rowCount] = await prisma.$transaction([
@@ -196,6 +206,7 @@ export async function findSyncStates(): Promise<SyncState[]> {
   const syncs = await prisma.sourceSync.findMany({
     where: { source: { in: [...externalSources] } },
     select: { source: true, lastSyncedAt: true },
+    orderBy: { source: "asc" },
   });
 
   return externalSources.map((source): SyncState => {

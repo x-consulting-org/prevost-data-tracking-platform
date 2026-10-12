@@ -24,7 +24,7 @@ _Avoid_: Client, partner, shipper
 Where a shipment is in its lifecycle: unhandled request, organizing, in transit, completed or cancelled.
 _Avoid_: State, phase, stage
 
-**Shipment event** (UI: _fontos változás_):
+**Shipment event** (UI: _esemény_):
 A business fact on a shipment's timeline, such as a schedule change, with the source it came from.
 _Avoid_: Audit, log, history
 
@@ -36,6 +36,6 @@ _Avoid_: Warning, notification, flag
 Where a fact came from: email, T-Port or manual entry.
 _Avoid_: Origin, channel
 
-**Source sync** (UI: _adatok állapota_):
+**Source sync** (UI: _adatok frissessége_):
 The last successful load from an external data source.
 _Avoid_: Refresh, update

@@ -11,6 +11,7 @@ export const auth = betterAuth({
     enabled: true,
     // Every signed-in user reads every shipment (ADR 0004), so accounts are provisioned, not self-registered.
     disableSignUp: true,
+    minPasswordLength: 12,
   },
   plugins: [nextCookies()],
 });

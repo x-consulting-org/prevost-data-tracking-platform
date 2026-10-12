@@ -7,7 +7,7 @@ import { ShipmentsTable } from "@/components/shipments/shipments-table";
 import { ShipmentsToolbar } from "@/components/shipments/shipments-toolbar";
 import { StatusBoard } from "@/components/shipments/status-board";
 import { shipmentsSearchParamsSchema } from "@/lib/shipments/schemas";
-import { completedVisibleDays } from "@/lib/shipments/status";
+import { closedVisibleDays } from "@/lib/shipments/status";
 
 export const metadata: Metadata = {
   title: "Fuvarok",
@@ -19,7 +19,7 @@ export default function ShipmentsPage({ searchParams }: PageProps<"/shipments">)
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight">Fuvarok</h1>
         <p className="text-sm text-text-secondary">
-          Nyitott igények és fuvarok, és az elmúlt {completedVisibleDays} nap teljesítései.
+          Nyitott igények és fuvarok, és az elmúlt {closedVisibleDays} nap teljesítései.
         </p>
       </header>
       <Suspense fallback={<BoardSkeleton />}>
