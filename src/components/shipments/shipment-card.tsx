@@ -2,6 +2,7 @@
 
 import { AlertList } from "@/components/shipments/alert-list";
 import { DispatcherTag } from "@/components/shipments/dispatcher-tag";
+import { ShipmentReferenceButton } from "@/components/shipments/shipment-reference-button";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import type { ShipmentCard as ShipmentCardData } from "@/server/shipments";
 
@@ -41,7 +42,7 @@ export function ShipmentCard({ shipment, now }: { shipment: ShipmentCardData; no
   return (
     <article className="flex flex-col gap-3 bg-layer p-4" aria-label={shipment.reference}>
       <header className="flex items-baseline justify-between gap-3">
-        <p className="shrink-0 font-mono text-sm">{shipment.reference}</p>
+        <ShipmentReferenceButton shipment={shipment} />
         <p className="truncate text-xs text-text-secondary">{shipment.customer.name}</p>
       </header>
 

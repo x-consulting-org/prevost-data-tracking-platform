@@ -50,6 +50,9 @@ $-prevost-orange-active: color.scale($-prevost-orange, $lightness: -24%);
   // Emitted after the components so their component tokens (button) are registered.
   :root {
     @include theme.theme();
+
+    // Exposed to Tailwind as `brand` (globals.css); never as text on a light surface.
+    --prevost-orange: #{$-prevost-orange};
   }
 
   // White text on the orange is ~1.8:1; Gray 100 keeps primary buttons above 6:1

@@ -17,6 +17,8 @@
   --color-text-secondary: var(--cds-text-secondary);
   --color-text-helper: var(--cds-text-helper);
   --color-focus: var(--cds-focus);
+  --color-link-primary: var(--cds-link-primary);
+  --color-brand: var(--prevost-orange);
   --color-support-error: var(--cds-support-error);
   --color-support-warning: var(--cds-support-warning);
   --color-support-success: var(--cds-support-success);

@@ -7,7 +7,7 @@ import { shipmentStatusLabel } from "@/lib/shipments/status";
 type TagType = "gray" | "blue" | "teal" | "green" | "warm-gray";
 
 /** Colour supports the label; the label always carries the status. */
-const statusTagType = {
+export const statusTagType = {
   UNHANDLED: "gray",
   ORGANIZING: "blue",
   IN_TRANSIT: "teal",
