@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
-import { DataSource, ShipmentStatus } from "@/generated/prisma/enums";
+import { ShipmentStatus, type DataSource } from "@/generated/prisma/enums";
 import { toPaginatedResult, toSkipTake, type PaginatedResult } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
 import { getShipmentAlerts, type ShipmentAlert } from "@/lib/shipments/alerts";
@@ -16,6 +16,7 @@ import type {
   ShipmentPageInput,
   SortableShipmentColumn,
 } from "@/lib/shipments/schemas";
+import { externalSources } from "@/lib/shipments/sources";
 import { boardStatuses, completedVisibleDays } from "@/lib/shipments/status";
 
 const hourMs = 3_600_000;
@@ -71,9 +72,6 @@ export type DispatcherBoard = {
 export type SyncState =
   | { status: "never_synced"; source: DataSource }
   | { status: "synced"; source: DataSource; lastSyncedAt: Date };
-
-/** Sources the app loads data from; MANUAL is entered in the app, so it never syncs. */
-const externalSources = [DataSource.EMAIL, DataSource.TPORT] as const;
 
 /** Board order: soonest pickup first, shipments without one last. `id` makes it total. */
 const boardOrderBy = [
