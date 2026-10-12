@@ -1,18 +1,20 @@
 "use client";
 
 import { ContentSwitcher, Dropdown, Switch, Toggle } from "@carbon/react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
-  defaultShipmentView,
+  shipmentsHref,
   shipmentViews,
   type ShipmentFilter,
+  type ShipmentsSearchParams,
   type ShipmentView,
 } from "@/lib/shipments/schemas";
 import type { DispatcherSummary } from "@/server/shipments";
 
-type DispatcherOption = { id: string | null; name: string };
+/** `id` is the filter value: undefined means every dispatcher. */
+type DispatcherOption = { id: string | undefined; name: string };
 
-const allDispatchers: DispatcherOption = { id: null, name: "Minden kolléga" };
+const allDispatchers: DispatcherOption = { id: undefined, name: "Minden kolléga" };
 
 const viewLabel = { kanban: "Kanban", table: "Tábla" } as const satisfies Record<
   ShipmentView,
@@ -30,22 +32,17 @@ export function ShipmentsToolbar({
   dispatchers: DispatcherSummary[];
 }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
 
-  function setParam(name: string, value: string | null) {
-    const params = new URLSearchParams(searchParams);
-    if (value === null) {
-      params.delete(name);
-    } else {
-      params.set(name, value);
-    }
-    const query = params.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  function show(next: ShipmentsSearchParams) {
+    router.replace(shipmentsHref(next), { scroll: false });
   }
 
   const options: DispatcherOption[] = [allDispatchers, ...dispatchers];
-  const selected = options.find((option) => option.id === (filter.dispatcherId ?? null));
+  // The page answers 404 for an unknown dispatcher, so the filter always names an option.
+  const selected = options.find((option) => option.id === filter.dispatcherId);
+  if (selected === undefined) {
+    throw new Error(`Dispatcher filter "${filter.dispatcherId}" is not a known dispatcher`);
+  }
 
   return (
     <div className="flex flex-wrap items-end gap-x-8 gap-y-4">
@@ -53,9 +50,13 @@ export function ShipmentsToolbar({
         size="md"
         className="w-48"
         selectedIndex={shipmentViews.indexOf(view)}
-        onChange={({ name }) =>
-          setParam("view", name === defaultShipmentView ? null : String(name))
-        }
+        onChange={({ index }) => {
+          const next = index === undefined ? undefined : shipmentViews[index];
+          if (next === undefined) {
+            throw new Error(`View switch reported an unknown index ${String(index)}`);
+          }
+          show({ view: next, filter });
+        }}
       >
         {shipmentViews.map((option) => (
           <Switch key={option} name={option} text={viewLabel[option]} />
@@ -70,7 +71,13 @@ export function ShipmentsToolbar({
           items={options}
           itemToString={(option) => option?.name ?? ""}
           selectedItem={selected}
-          onChange={({ selectedItem }) => setParam("dispatcher", selectedItem?.id ?? null)}
+          onChange={({ selectedItem }) => {
+            // Every option is a real choice and the dropdown has no clear action.
+            if (selectedItem === null) {
+              throw new Error("Dispatcher dropdown reported no selection");
+            }
+            show({ view, filter: { ...filter, dispatcherId: selectedItem.id } });
+          }}
         />
       </div>
       <Toggle
@@ -80,7 +87,7 @@ export function ShipmentsToolbar({
         labelA="Ki"
         labelB="Be"
         toggled={filter.pickupWithin24h}
-        onToggle={(checked) => setParam("next24h", checked ? "true" : null)}
+        onToggle={(checked) => show({ view, filter: { ...filter, pickupWithin24h: checked } })}
       />
     </div>
   );

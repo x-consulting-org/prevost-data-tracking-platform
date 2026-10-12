@@ -18,8 +18,7 @@ import type {
 } from "@/lib/shipments/schemas";
 import { externalSources } from "@/lib/shipments/sources";
 import { boardStatuses, completedVisibleDays } from "@/lib/shipments/status";
-
-const hourMs = 3_600_000;
+import { dayMs } from "@/lib/time";
 
 const shipmentCardSelect = {
   id: true,
@@ -92,14 +91,18 @@ const sortableColumnOrderBy = {
   (sort: Prisma.SortOrder) => Prisma.ShipmentOrderByWithRelationInput[]
 >;
 
-/** Open shipments plus those completed within the last `completedVisibleDays`. */
+/**
+ * Open shipments plus those completed within the last `completedVisibleDays`. The boards load
+ * all of them unpaged: phase 0 has tens of open shipments per dispatcher, and a larger
+ * volume needs per-column paging before it goes live.
+ */
 function boardWhere(filter: ShipmentFilter, now: Date): Prisma.ShipmentWhereInput {
-  const completedSince = new Date(now.getTime() - completedVisibleDays * 24 * hourMs);
+  const completedSince = new Date(now.getTime() - completedVisibleDays * dayMs);
 
   return {
     dispatcherId: filter.dispatcherId,
     pickupAt: filter.pickupWithin24h
-      ? { gte: now, lte: new Date(now.getTime() + 24 * hourMs) }
+      ? { gte: now, lte: new Date(now.getTime() + dayMs) }
       : undefined,
     OR: [
       { status: { in: boardStatuses.filter((status) => status !== ShipmentStatus.COMPLETED) } },
@@ -192,6 +195,7 @@ export async function findDispatchers(): Promise<DispatcherSummary[]> {
 export async function findSyncStates(): Promise<SyncState[]> {
   const syncs = await prisma.sourceSync.findMany({
     where: { source: { in: [...externalSources] } },
+    select: { source: true, lastSyncedAt: true },
   });
 
   return externalSources.map((source): SyncState => {

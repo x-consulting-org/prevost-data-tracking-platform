@@ -1,15 +1,17 @@
-"use client";
-
 import { AttentionIcon } from "@/components/shipments/alert-list";
 import { ShipmentCard } from "@/components/shipments/shipment-card";
-import { shipmentStatusLabel, type BoardStatus } from "@/lib/shipments/status";
+import {
+  completedVisibleDays,
+  shipmentStatusLabel,
+  type BoardStatus,
+} from "@/lib/shipments/status";
 import type { StatusBoard as StatusBoardData } from "@/server/shipments";
 
 const emptyColumnText = {
   UNHANDLED: "Nincs kezeletlen igény.",
   ORGANIZING: "Nincs szervezés alatt álló fuvar.",
   IN_TRANSIT: "Nincs úton lévő fuvar.",
-  COMPLETED: "Az elmúlt 7 napban nem teljesült fuvar.",
+  COMPLETED: `Az elmúlt ${completedVisibleDays} napban nem teljesült fuvar.`,
 } as const satisfies Record<BoardStatus, string>;
 
 export function StatusBoard({ board }: { board: StatusBoardData }) {

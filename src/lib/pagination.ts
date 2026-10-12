@@ -16,22 +16,6 @@ export const paginationInputSchema = z.object({
 
 export type PaginationInput = z.infer<typeof paginationInputSchema>;
 
-export const sortingItemSchema = z.object({
-  id: z.string().min(1),
-  desc: z.boolean(),
-});
-
-/** Aligns with TanStack Table `SortingState`. */
-export const sortingInputSchema = z.array(sortingItemSchema).default([]);
-
-export type SortingInput = z.infer<typeof sortingInputSchema>;
-
-export const listQueryInputSchema = paginationInputSchema.extend({
-  sorting: sortingInputSchema,
-});
-
-export type ListQueryInput = z.infer<typeof listQueryInputSchema>;
-
 export type PaginatedResult<T> = {
   items: T[];
   pageIndex: number;
@@ -40,10 +24,6 @@ export type PaginatedResult<T> = {
   /** Total rows across all pages — pass to TanStack Table as `rowCount`. */
   rowCount: number;
 };
-
-export function parseListQueryInput(input: unknown): ListQueryInput {
-  return listQueryInputSchema.parse(input);
-}
 
 export function toSkipTake({ pageIndex, pageSize }: PaginationInput): {
   skip: number;

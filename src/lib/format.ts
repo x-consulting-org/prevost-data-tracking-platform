@@ -1,3 +1,5 @@
+import { dayMs, hourMs, minuteMs } from "@/lib/time";
+
 /** The only place that decides the UI's locale and time zone. */
 const locale = "hu-HU";
 const timeZone = "Europe/Budapest";
@@ -11,10 +13,6 @@ const dateTimeFormat = new Intl.DateTimeFormat(locale, {
 });
 
 const relativeTimeFormat = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-
-const minuteMs = 60_000;
-const hourMs = 60 * minuteMs;
-const dayMs = 24 * hourMs;
 
 /** "okt. 14. 08:00" in Budapest time. */
 export function formatDateTime(date: Date): string {

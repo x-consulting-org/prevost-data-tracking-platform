@@ -1,5 +1,3 @@
-"use client";
-
 import { WarningAltFilled } from "@carbon/icons-react";
 import { describeShipmentAlert, type ShipmentAlert } from "@/lib/shipments/alerts";
 

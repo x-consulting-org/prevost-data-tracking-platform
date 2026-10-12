@@ -10,6 +10,7 @@ import { auth } from "../src/lib/auth";
 import { formatDateTime } from "../src/lib/format";
 import { prisma } from "../src/lib/prisma";
 import { shipmentStatusLabel } from "../src/lib/shipments/status";
+import { hourMs } from "../src/lib/time";
 
 const demoUser = { email: "demo@prevost.example", name: "Demo Vezető" };
 
@@ -79,8 +80,6 @@ const statusPlan: { status: ShipmentStatus; count: number }[] = [
   { status: ShipmentStatus.COMPLETED, count: 12 },
   { status: ShipmentStatus.CANCELLED, count: 4 },
 ];
-
-const hourMs = 3_600_000;
 
 /** mulberry32: small seeded PRNG so every run produces the same data relative to `now`. */
 function createRandom(seed: number) {

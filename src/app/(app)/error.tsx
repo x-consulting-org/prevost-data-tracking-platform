@@ -1,6 +1,7 @@
 "use client";
 
 import { Button, InlineNotification } from "@carbon/react";
+import { useQueryErrorResetBoundary } from "@tanstack/react-query";
 import { useEffect } from "react";
 
 export default function AppError({
@@ -10,6 +11,9 @@ export default function AppError({
   error: Error & { digest?: string };
   retry: () => void;
 }) {
+  // Queries that threw here stay in error until React Query's boundary is reset too.
+  const { reset } = useQueryErrorResetBoundary();
+
   useEffect(() => {
     // The message is hidden from the client in production; the server log has the details.
     console.error(error);
@@ -24,7 +28,14 @@ export default function AppError({
         title="Az adatok betöltése nem sikerült."
         subtitle="Próbáld újra. Ha nem javul, szólj a rendszergazdának."
       />
-      <Button kind="secondary" size="md" onClick={() => retry()}>
+      <Button
+        kind="secondary"
+        size="md"
+        onClick={() => {
+          reset();
+          retry();
+        }}
+      >
         Újrapróbálás
       </Button>
     </div>

@@ -7,6 +7,7 @@ import { ShipmentReferenceButton } from "@/components/shipments/shipment-referen
 import { statusTagType } from "@/components/shipments/status-tag";
 import { formatDateTime, formatRelative } from "@/lib/format";
 import type { StatusColumn } from "@/lib/shipments/grouping";
+import { shipmentsHref } from "@/lib/shipments/schemas";
 import { shipmentStatusLabel } from "@/lib/shipments/status";
 import type { DispatcherBoard as DispatcherBoardData, ShipmentCard } from "@/server/shipments";
 
@@ -143,7 +144,10 @@ export function DispatcherBoard({
           )}
 
           <NextLink
-            href={`/shipments?dispatcher=${dispatcher.id}`}
+            href={shipmentsHref({
+              view: "kanban",
+              filter: { dispatcherId: dispatcher.id, pickupWithin24h: false },
+            })}
             className="text-sm text-link-primary hover:underline focus-visible:outline-2 focus-visible:outline-focus"
           >
             {dispatcher.name} fuvarjai a Fuvarok nézetben

@@ -93,6 +93,7 @@ src/
     auth-client.ts
     data-table.ts      # Shared TanStack Table v9 features and column rules
     format.ts          # The only place that decides locale and time zone
+    time.ts            # Millisecond durations (minute, hour, day)
     pagination.ts      # Zod list/pagination schemas + PaginatedResult
     prisma.ts
     query-keys.ts      # TanStack Query key factory
@@ -122,7 +123,7 @@ prettier.config.mjs
 6. Do **not** add Route Handlers for ordinary app CRUD when a server action exists.
 7. Keep query keys in `src/lib/query-keys.ts` (hierarchical factory). Invalidate by prefix.
 8. Put every server-owned table slice (`pagination`, `sorting`, filters) in the **query key**. Prefer `placeholderData: keepPreviousData` for page transitions.
-9. Screen state a user would reload or share (view, filters, the focused dispatcher, the open shipment) lives in the URL. Pages parse their search params with a Zod schema (`src/lib/shipments/schemas.ts`) and answer 404 on invalid input. Client-only state such as `?shipment=<id>` is set through the history API (`src/components/shipments/shipment-detail-url.ts`), which updates `useSearchParams` without a server round trip.
+9. Screen state a user would reload or share (view, filters, the focused dispatcher, the open shipment) lives in the URL. Pages parse their search params with a Zod schema and links build them with the matching href function, side by side in `src/lib/shipments/schemas.ts`; invalid input, including an unknown dispatcher, answers 404. Client-only state such as `?shipment=<id>` is set through the history API (`src/components/shipments/shipment-detail-url.ts`), which updates `useSearchParams` without a server round trip.
 
 ```tsx
 // Client — query
@@ -165,10 +166,10 @@ Follow TanStack Table **v9** APIs (`useTable`, `tableFeatures`, feature plugins)
 | `rowCount` | total rows → table `rowCount` |
 | `pageCount` | derived page count |
 
-Helpers: `src/lib/pagination.ts` (`listQueryInputSchema`, `toSkipTake`, `toPaginatedResult`).  
+Helpers: `src/lib/pagination.ts` (`paginationInputSchema`, `toSkipTake`, `toPaginatedResult`); each list schema adds its own typed `sorting` (see `shipmentPageInputSchema`).  
 Reference: `listShipmentsPage` in `src/actions/shipments.ts`, rendered by `ShipmentsTable` in `src/components/shipments/shipments-table.tsx`.
 
-5. Every column has a plain text `header` and a `minSize` and `maxSize` (`columnLabel` / `columnSizeLimits` in `src/lib/data-table.ts` throw otherwise). Its default width is fitted to the header and the current page's content with `useFittedColumnSizes`; users resize it with `ColumnResizeHandles` (drag, arrow keys, double-click to fit again), always within the limits. Render a `<colgroup>` from `header.getSize()` on a `table-fixed` Carbon `Table`, and truncate cells with a `title`.
+5. Every column has a plain text `header` and a `minSize` and `maxSize` (`columnLabel` / `columnSizeLimits` in `src/lib/data-table.ts` throw otherwise). Its default width is fitted to the header and the current page's content with `useFittedColumns`; users resize it with `ColumnResizeHandles` (drag, arrow keys, double-click to fit again), always within the limits. Render a `<colgroup>` from `header.getSize()` on a `table-fixed` Carbon `Table`, and truncate cells with a `title`.
 6. Sortable headers pass `translateWithId={() => sortActionLabel(label, column.getNextSortingOrder())}` so Carbon's sort description is Hungarian.
 
 Do **not** copy query rows into a separate `useState`—feed `data?.items ?? emptyRows` (stable empty fallback) straight into `useTable`.

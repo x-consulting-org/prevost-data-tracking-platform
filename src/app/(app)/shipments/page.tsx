@@ -35,6 +35,12 @@ async function Shipments({ searchParams }: Pick<PageProps<"/shipments">, "search
     listDispatchers(),
     view === "kanban" ? getStatusBoard(filter) : null,
   ]);
+  if (
+    filter.dispatcherId !== undefined &&
+    !dispatchers.some((dispatcher) => dispatcher.id === filter.dispatcherId)
+  ) {
+    notFound();
+  }
 
   return (
     <>

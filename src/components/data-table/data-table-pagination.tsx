@@ -4,7 +4,7 @@ import { Pagination } from "@carbon/react";
 import type { PaginationState } from "@tanstack/react-table";
 import { pageSizeOptions } from "@/lib/pagination";
 
-export type DataTablePaginationProps = {
+type DataTablePaginationProps = {
   pagination: PaginationState;
   rowCount: number;
   onPaginationChange: (pagination: PaginationState) => void;
