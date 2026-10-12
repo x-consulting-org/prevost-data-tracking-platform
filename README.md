@@ -55,19 +55,19 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Scripts
 
-| Script | Purpose |
-| --- | --- |
-| `pnpm dev` | Next.js dev server |
-| `pnpm build` / `pnpm start` | Production build & serve |
-| `pnpm lint` / `pnpm lint:fix` | ESLint |
-| `pnpm format` / `pnpm format:check` | Prettier |
-| `pnpm test` | Vitest (pure domain modules) |
-| `pnpm db:up` / `pnpm db:down` | Start/stop Postgres via Docker Compose |
-| `pnpm prisma:generate` | Generate Prisma Client → `src/generated/prisma` |
-| `pnpm prisma:migrate` | Run `prisma migrate dev` |
-| `pnpm db:seed` | Replace shipment data with the demo set (`prisma/seed.ts`) |
-| `pnpm prisma:studio` | Prisma Studio |
-| `pnpm auth:generate` | Sync better-auth models into `prisma/schema.prisma` |
+| Script                              | Purpose                                                    |
+| ----------------------------------- | ---------------------------------------------------------- |
+| `pnpm dev`                          | Next.js dev server                                         |
+| `pnpm build` / `pnpm start`         | Production build & serve                                   |
+| `pnpm lint` / `pnpm lint:fix`       | ESLint                                                     |
+| `pnpm format` / `pnpm format:check` | Prettier                                                   |
+| `pnpm test`                         | Vitest (pure domain modules)                               |
+| `pnpm db:up` / `pnpm db:down`       | Start/stop Postgres via Docker Compose                     |
+| `pnpm prisma:generate`              | Generate Prisma Client → `src/generated/prisma`            |
+| `pnpm prisma:migrate`               | Run `prisma migrate dev`                                   |
+| `pnpm db:seed`                      | Replace shipment data with the demo set (`prisma/seed.ts`) |
+| `pnpm prisma:studio`                | Prisma Studio                                              |
+| `pnpm auth:generate`                | Sync better-auth models into `prisma/schema.prisma`        |
 
 ## Project layout
 
@@ -79,15 +79,15 @@ src/
     (auth)/login/      # Sign-in page
     (app)/             # Signed-in shell: Fuvarok (shipments/), Kollégák (dispatchers/)
     api/auth/          # better-auth catch-all handler
-    carbon.scss        # Carbon theme (Gray 10 + Prévost orange)
+    carbon.scss        # Carbon theme (asphalt greys + Prévost orange, rounded controls)
     _carbon-components.scss  # The Carbon component styles the app renders
   components/
     auth/              # Login form
     data-table/        # Carbon pagination, column fitting and resizing for TanStack Table
     dispatchers/       # Kollégák board
     providers/         # QueryProvider
-    shell/             # Carbon UI Shell: header, side nav, sync status, user menu
-    shipments/         # Kanban, table, cards, tags, shipment detail
+    shell/             # Asphalt sidebar / top bar: nav, live refresh, sync status, user menu
+    shipments/         # Kanban lanes, table, cards, status badges, shipment detail
   lib/
     auth.ts
     auth-client.ts
@@ -97,7 +97,7 @@ src/
     pagination.ts      # Zod list/pagination schemas + PaginatedResult
     prisma.ts
     query-keys.ts      # TanStack Query key factory
-    shipments/         # Pure domain rules: statuses, alerts, grouping, schemas, sources
+    shipments/         # Pure domain rules: statuses, alerts, grouping, progress, schemas, sources
   server/              # Server-only read models and identity (Prisma lives here)
   proxy.ts             # Redirects signed-out requests to /login
 prisma/                # Schema, migrations, demo seed
@@ -157,14 +157,14 @@ Follow TanStack Table **v9** APIs (`useTable`, `tableFeatures`, feature plugins)
 3. Every table (and other long paged lists) must render **Carbon Pagination** through `DataTablePagination` (`src/components/data-table/data-table-pagination.tsx`). Its page sizes come from `pageSizeOptions` in `src/lib/pagination.ts`, which also caps `pageSize` on the server.
 4. List server actions accept TanStack-aligned input and return `PaginatedResult<T>`:
 
-| Field | Meaning |
-| --- | --- |
-| `pageIndex` | 0-based page (`PaginationState`) |
-| `pageSize` | rows per page (max 100) |
-| `sorting` | TanStack `SortingState` (`{ id, desc }[]`) |
-| `items` | current page rows → table `data` |
-| `rowCount` | total rows → table `rowCount` |
-| `pageCount` | derived page count |
+| Field       | Meaning                                    |
+| ----------- | ------------------------------------------ |
+| `pageIndex` | 0-based page (`PaginationState`)           |
+| `pageSize`  | rows per page (max 100)                    |
+| `sorting`   | TanStack `SortingState` (`{ id, desc }[]`) |
+| `items`     | current page rows → table `data`           |
+| `rowCount`  | total rows → table `rowCount`              |
+| `pageCount` | derived page count                         |
 
 Helpers: `src/lib/pagination.ts` (`paginationInputSchema`, `toSkipTake`, `toPaginatedResult`); each list schema adds its own typed `sorting` (see `shipmentPageInputSchema`).  
 Reference: `listShipmentsPage` in `src/actions/shipments.ts`, rendered by `ShipmentsTable` in `src/components/shipments/shipments-table.tsx`.
@@ -244,9 +244,11 @@ export function ExampleForm() {
 ### UI (IBM Carbon + Tailwind v4)
 
 - Components come from `@carbon/react`, imported directly in client components (Carbon files carry no `"use client"`, so Server Components cannot render them). There is no wrapper layer.
-- Theme: `src/app/carbon.scss` (Carbon Gray 10 + Prévost orange `#FBB727` on primary buttons with Gray 100 text). It loads only the styles of components the app uses, so add `components/<name>` to `src/app/_carbon-components.scss` when you use a new Carbon component.
-- Fonts: IBM Plex Sans / Mono through `next/font` in `src/app/layout.tsx`; Carbon reads them via `--font-plex-sans` / `--font-plex-mono`.
+- Theme: `src/app/carbon.scss` (Carbon's Gray 10 with its neutrals replaced by the cool "asphalt" greys, Prévost orange `#FBB727` on primary buttons with ink text, and rounded controls). It loads only the styles of components the app uses, so add `components/<name>` to `src/app/_carbon-components.scss` when you use a new Carbon component.
+- Colours outside Carbon live in `src/app/globals.css`: the dark sidebar (`asphalt`), the shipment statuses (`status-<name>`, `-tint`, `-ink`; mapped to classes in `components/shipments/status-badge.tsx`) and the attention red for alerts. Amber means "on the road", so alerts are red, never amber.
+- Fonts: IBM Plex Sans through `next/font` in `src/app/layout.tsx`; Carbon reads it via `--font-plex-sans`.
 - Tailwind is the layout utility layer. `src/app/globals.css` maps its colours to Carbon tokens (`bg-layer`, `text-text-secondary`, `border-border-subtle`, …) and orders the cascade layers so utilities win over Carbon styles.
+- Motion: one entrance per board (cards arrive lane by lane), hover lift on cards, and a ping on the live-refresh dot when the screen's data reloads (every minute while the tab is visible). `prefers-reduced-motion` turns all of it off.
 - Tables: Carbon `Table*` components + TanStack Table v9 + `DataTablePagination`, with content-fitted, resizable columns (see the table conventions above).
 - `@carbon/react` depends on `@ibm/telemetry-js`. Its postinstall does not run here because pnpm only runs build scripts listed in `onlyBuiltDependencies`; keep it off that list, and set `IBM_TELEMETRY_DISABLED=true` in CI and container environments.
 

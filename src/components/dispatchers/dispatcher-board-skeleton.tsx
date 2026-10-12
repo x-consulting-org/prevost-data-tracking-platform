@@ -11,7 +11,7 @@ export function DispatcherBoardSkeleton() {
       className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3"
     >
       {[0, 1, 2].map((column) => (
-        <SkeletonPlaceholder key={column} className="h-80! w-full!" />
+        <SkeletonPlaceholder key={column} className="h-96! w-full! rounded-2xl!" />
       ))}
     </div>
   );

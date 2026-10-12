@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { formatDateTime, formatRelative } from "@/lib/format";
+import { formatDateTime, formatRelative, formatTime } from "@/lib/format";
 
 describe("formatDateTime", () => {
   it("shows Budapest time in both summer and winter", () => {
     expect(formatDateTime(new Date("2026-07-01T06:00:00Z"))).toBe("júl. 1. 08:00");
     expect(formatDateTime(new Date("2026-01-15T07:00:00Z"))).toBe("jan. 15. 08:00");
+  });
+});
+
+describe("formatTime", () => {
+  it("shows the Budapest wall-clock time", () => {
+    expect(formatTime(new Date("2026-07-01T06:05:00Z"))).toBe("08:05");
+    expect(formatTime(new Date("2026-01-15T16:30:00Z"))).toBe("17:30");
   });
 });
 

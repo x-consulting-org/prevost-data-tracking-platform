@@ -7,19 +7,19 @@ import {
   ModalBody,
   ModalHeader,
   SkeletonText,
-  Tag,
 } from "@carbon/react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { getShipmentDetail } from "@/actions/shipments";
 import { AlertList } from "@/components/shipments/alert-list";
-import { DispatcherTag } from "@/components/shipments/dispatcher-tag";
+import { CountryCode } from "@/components/shipments/country-code";
+import { DispatcherLink } from "@/components/shipments/dispatcher-link";
 import {
   closeShipmentDetail,
   shipmentDetailParam,
 } from "@/components/shipments/shipment-detail-url";
-import { ShipmentStatusTag } from "@/components/shipments/status-tag";
+import { ShipmentStatusBadge, statusStyle } from "@/components/shipments/status-badge";
 import { formatDateTime } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
 import { shipmentDetailInputSchema } from "@/lib/shipments/schemas";
@@ -110,14 +110,52 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function Stop({ city, country, at }: { city: string; country: string; at: Date | null }) {
+function Stop({
+  label,
+  city,
+  country,
+  at,
+}: {
+  label: string;
+  city: string;
+  country: string;
+  at: Date | null;
+}) {
   return (
-    <>
-      {city} {country}
-      <span className="block text-text-secondary tabular-nums">
+    <dl className="flex min-w-0 flex-col gap-0.5">
+      <dt className="text-xs text-text-secondary">{label}</dt>
+      <dd className="flex items-center gap-1.5 text-base font-semibold">
+        {city} <CountryCode code={country} />
+      </dd>
+      <dd className="text-sm text-text-secondary tabular-nums">
         {at === null ? missing : formatDateTime(at)}
+      </dd>
+    </dl>
+  );
+}
+
+/** Pickup and delivery side by side, joined by the route line in the status colour. */
+function Route({ shipment }: { shipment: ShipmentDetail }) {
+  return (
+    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 rounded-xl bg-layer-sunken p-4">
+      <Stop
+        label="Felrakás"
+        city={shipment.originCity}
+        country={shipment.originCountry}
+        at={shipment.pickupAt}
+      />
+      <span aria-hidden="true" className="flex w-10 items-center md:w-20">
+        <span className={`size-2.5 shrink-0 rounded-full ${statusStyle[shipment.status].solid}`} />
+        <span className="h-0.5 flex-1 bg-border-strong" />
+        <span className="size-2.5 shrink-0 rounded-full border-2 border-border-strong" />
       </span>
-    </>
+      <Stop
+        label="Lerakás"
+        city={shipment.destinationCity}
+        country={shipment.destinationCountry}
+        at={shipment.deliveryAt}
+      />
+    </div>
   );
 }
 
@@ -125,40 +163,23 @@ function ShipmentDetailBody({ shipment }: { shipment: ShipmentDetail }) {
   return (
     <>
       <ModalHeader label="Fuvar" iconDescription="Bezárás" buttonOnClick={closeShipmentDetail}>
-        <h2 className="flex flex-wrap items-center gap-3 text-xl">
-          <span className="font-mono">{shipment.reference}</span>
-          <ShipmentStatusTag status={shipment.status} />
+        <h2 className="flex flex-wrap items-center gap-3 text-xl font-semibold tabular-nums">
+          {shipment.reference}
+          <ShipmentStatusBadge status={shipment.status} />
         </h2>
       </ModalHeader>
       <ModalBody hasScrollingContent aria-label="Fuvar részletei">
         <div className="grid gap-8 md:grid-cols-2">
           <div className="flex flex-col gap-6">
             <AlertList alerts={shipment.alerts} />
+            <Route shipment={shipment} />
             <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
               <Field label="Megbízó">{shipment.customer.name}</Field>
               <Field label="Kolléga">
-                <DispatcherTag dispatcher={shipment.dispatcher} />
-              </Field>
-              <Field label="Felrakás">
-                <Stop
-                  city={shipment.originCity}
-                  country={shipment.originCountry}
-                  at={shipment.pickupAt}
-                />
-              </Field>
-              <Field label="Lerakás">
-                <Stop
-                  city={shipment.destinationCity}
-                  country={shipment.destinationCountry}
-                  at={shipment.deliveryAt}
-                />
+                <DispatcherLink dispatcher={shipment.dispatcher} className="-ml-0.5" />
               </Field>
               <Field label="T-Port járat">
-                {shipment.tportTripId === null ? (
-                  missing
-                ) : (
-                  <span className="font-mono">{shipment.tportTripId}</span>
-                )}
+                <span className="tabular-nums">{shipment.tportTripId ?? missing}</span>
               </Field>
               <Field label="Igény érkezett">{formatDateTime(shipment.requestedAt)}</Field>
               <Field label="Áru">{shipment.cargoDescription ?? missing}</Field>
@@ -173,16 +194,20 @@ function ShipmentDetailBody({ shipment }: { shipment: ShipmentDetail }) {
             {shipment.events.length === 0 ? (
               <p className="text-sm text-text-secondary">Nincs rögzített esemény.</p>
             ) : null}
-            <ol className="flex flex-col gap-4 border-l border-border-subtle pl-4">
+            <ol className="relative flex flex-col gap-4 pl-5 before:absolute before:top-1.5 before:bottom-1.5 before:left-[0.21rem] before:w-0.5 before:rounded-full before:bg-border-subtle">
               {shipment.events.map((event) => (
-                <li key={event.id} className="flex flex-col gap-1 text-sm">
+                <li key={event.id} className="relative flex flex-col gap-1 text-sm">
+                  <span
+                    aria-hidden="true"
+                    className="absolute top-1 -left-5 size-2.5 rounded-full border-2 border-layer bg-border-strong"
+                  />
                   <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
                     <time dateTime={event.occurredAt.toISOString()} className="tabular-nums">
                       {formatDateTime(event.occurredAt)}
                     </time>
-                    <Tag type="outline" size="sm" className="m-0">
+                    <span className="rounded-full border border-border-subtle px-2 py-px">
                       {dataSourceLabel[event.source]}
-                    </Tag>
+                    </span>
                   </div>
                   <p>{event.summary}</p>
                 </li>
