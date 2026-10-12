@@ -28,6 +28,8 @@ Create a `.env` in the project root with at least:
 
 ```bash
 DATABASE_URL="postgresql://prevost:prevost@localhost:5432/prevost_tracking"
+BETTER_AUTH_SECRET="at-least-32-random-characters"
+BETTER_AUTH_URL="http://localhost:3000"
 # Password of the seeded demo user (demo@prevost.example)
 DEMO_USER_PASSWORD="choose-a-password"
 ```
@@ -271,8 +273,10 @@ export function ExampleForm() {
 
 ### Auth (better-auth)
 
-- Server: `src/lib/auth.ts` (Prisma adapter, email/password, `nextCookies`).
-- Client: `src/lib/auth-client.ts`.
+- Server: `src/lib/auth.ts` (Prisma adapter, email/password, `nextCookies`). Sign-up is disabled: users are provisioned (the seed creates the demo user).
+- Client: `src/lib/auth-client.ts`; the login page is `src/app/(auth)/login`.
+- Identity boundary: `src/server/principal.ts`. `requirePrincipal()` reads the session once per request, redirects to `/login` without one and returns a provider-independent `Principal`. Every server action calls it first, because actions are public POST endpoints.
+- `src/proxy.ts` only does an optimistic session-cookie redirect to `/login`; it is not the security check.
 - API route: `src/app/api/auth/[...all]/route.ts`.
 - Auth tables (`user`, `session`, `account`, `verification`) are in the Prisma schema / migrations.
 

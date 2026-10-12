@@ -9,8 +9,8 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
+    // Every signed-in user reads every shipment (ADR 0004), so accounts are provisioned, not self-registered.
+    disableSignUp: true,
   },
   plugins: [nextCookies()],
 });
-
-export type Session = typeof auth.$Infer.Session;
