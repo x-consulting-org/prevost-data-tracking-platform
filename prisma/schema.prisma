@@ -85,6 +85,8 @@ enum ShipmentStatus {
 
 enum ShipmentEventType {
   REQUEST_RECEIVED
+  /// A dispatcher's reply to the customer. The first one is the shipment's first response.
+  RESPONSE_SENT
   STATUS_CHANGED
   SCHEDULE_CHANGED
   DETAILS_CHANGED
@@ -106,6 +108,16 @@ model Dispatcher {
   shipments Shipment[]
 
   @@map("dispatcher")
+}
+
+/// A truck as T-Port knows it. Shipments on the same vehicle follow each other.
+model Vehicle {
+  id        String     @id @default(uuid(7))
+  /// Registration plate, e.g. "PRV-412".
+  plate     String     @unique
+  shipments Shipment[]
+
+  @@map("vehicle")
 }
 
 model Customer {
@@ -130,6 +142,9 @@ model Shipment {
   customer            Customer        @relation(fields: [customerId], references: [id])
   /// Null until the shipment is matched to a T-Port trip.
   tportTripId         String?         @unique
+  /// The truck of the T-Port trip; null while no trip is linked.
+  vehicleId           String?
+  vehicle             Vehicle?        @relation(fields: [vehicleId], references: [id])
   originCity          String
   originCountry       String          @db.Char(2)
   destinationCity     String
@@ -148,6 +163,10 @@ model Shipment {
   @@index([status, statusChangedAt])
   @@index([dispatcherId, status])
   @@index([customerId])
+  /// A vehicle's next pickup after an unload.
+  @@index([vehicleId, pickupAt])
+  /// The review window: shipments requested in the last days.
+  @@index([requestedAt])
   @@map("shipment")
 }
 

@@ -3,7 +3,7 @@ import { formatDateTime } from "@/lib/format";
 import { hourMs } from "@/lib/time";
 
 /** Thresholds are placeholders until the operations workshop sets the real ones. */
-const unansweredRequestAfterHours = 2;
+export const unansweredRequestAfterHours = 2;
 const unplannedPickupWithinHours = 24;
 
 export type ShipmentAlert =
