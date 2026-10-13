@@ -113,13 +113,35 @@
   --color-attention-ink: #a92c1c;
   --color-attention-on-dark: #ff9b96;
 
-  --animate-enter: enter 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  --animate-ping-once: ping-once 900ms ease-out;
+  /* Performance review verdicts. Lower is better on every metric, so "needs work" borrows the
+     attention red; the verdict word always carries the meaning, the colour supports it. */
+  --color-verdict-strength: var(--color-forest-moss-700);
+  --color-verdict-strength-tint: var(--color-forest-moss-100);
+  --color-verdict-strength-ink: var(--color-forest-moss-900);
+  --color-verdict-on-par: var(--color-onyx-500);
+  --color-verdict-on-par-tint: var(--color-onyx-100);
+  --color-verdict-on-par-ink: var(--color-onyx-700);
+  --color-verdict-needs-work: var(--color-attention);
+  --color-verdict-needs-work-tint: var(--color-attention-tint);
+  --color-verdict-needs-work-ink: var(--color-attention-ink);
 
-  @keyframes enter {
+  --animate-ping-once: ping-once 900ms ease-out;
+  /* The Mutatók bars grow in once, when that view is picked. */
+  --animate-grow-x: grow-x 500ms cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  @keyframes grow-x {
     from {
+      transform: scaleX(0);
+    }
+  }
+
+  /* The unsaved-changes bar of the Mérőszámok page, when the first number changes. */
+  --animate-rise: rise 200ms ease-out;
+
+  @keyframes rise {
+    from {
+      transform: translateY(0.75rem);
       opacity: 0;
-      transform: translateY(8px);
     }
   }
 
@@ -135,7 +157,7 @@
   }
 }
 
-/* With reduced motion the entrance, the refresh ping and every transition are static. */
+/* With reduced motion the refresh ping, the growing bars and every transition are static. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

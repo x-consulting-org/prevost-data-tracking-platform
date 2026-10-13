@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { formatDateTime, formatRelative, formatTime } from "@/lib/format";
+import {
+  formatDateTime,
+  formatDecimal,
+  formatDuration,
+  formatRelative,
+  formatShare,
+  formatTime,
+} from "@/lib/format";
 
 describe("formatDateTime", () => {
   it("shows Budapest time in both summer and winter", () => {
@@ -35,5 +42,21 @@ describe("formatRelative", () => {
 
   it("switches to hours instead of showing 60 minutes", () => {
     expect(formatRelative(hoursFromNow(59.6 / 60), now)).toBe("1 óra múlva");
+  });
+});
+
+describe("formatDuration", () => {
+  it("picks minutes, hours or days so the number stays readable", () => {
+    expect(formatDuration(42 * 60_000)).toBe("42 perc");
+    expect(formatDuration(5.25 * 3_600_000)).toBe("5,3 óra");
+    expect(formatDuration(47 * 3_600_000)).toBe("47 óra");
+    expect(formatDuration(58 * 3_600_000)).toBe("2,4 nap");
+  });
+});
+
+describe("formatShare and formatDecimal", () => {
+  it("write numbers the Hungarian way", () => {
+    expect(formatShare(0.184)).toBe("18%");
+    expect(formatDecimal(1.44)).toBe("1,4");
   });
 });

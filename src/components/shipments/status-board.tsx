@@ -14,10 +14,6 @@ const emptyColumnText = {
   CANCELLED: `Az elmúlt ${closedVisibleDays} napban nem töröltek fuvart.`,
 } as const satisfies Record<ShipmentStatus, string>;
 
-// The entrance runs top to bottom in each lane; cards further down arrive with the last one.
-const enterStepMs = 45;
-const enterMaxSteps = 8;
-
 /**
  * One lane per status. Below md one lane at a time is shown (BoardLanes); from xl up the board
  * fills the viewport and each lane scrolls on its own, so every lane's header stays in view.
@@ -53,13 +49,13 @@ export function StatusBoard({ board }: { board: StatusBoardData }) {
           </p>
         ) : (
           <ul className="flex [scrollbar-width:thin] flex-col gap-1.5 xl:min-h-0 xl:overflow-y-auto xl:overscroll-contain">
-            {column.shipments.map((shipment, index) => (
-              <li
-                key={shipment.id}
-                className="animate-enter"
-                style={{ animationDelay: `${Math.min(index, enterMaxSteps) * enterStepMs}ms` }}
-              >
-                <ShipmentCard shipment={shipment} now={board.generatedAt} />
+            {column.shipments.map((shipment) => (
+              <li key={shipment.id}>
+                <ShipmentCard
+                  shipment={shipment}
+                  now={board.generatedAt}
+                  settings={board.settings}
+                />
               </li>
             ))}
           </ul>

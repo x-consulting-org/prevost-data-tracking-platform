@@ -1,10 +1,21 @@
 import { ShipmentStatus } from "@/generated/prisma/enums";
 import { formatDateTime } from "@/lib/format";
+import {
+  onTimeToleranceMs,
+  unansweredAfterMs,
+  type MetricSettings,
+} from "@/lib/performance/settings";
+import { stopTiming } from "@/lib/shipments/milestones";
 import { hourMs } from "@/lib/time";
 
-/** Thresholds are placeholders until the operations workshop sets the real ones. */
-const unansweredRequestAfterHours = 2;
+/** Not a review metric, so not on the Mérőszámok page; a workshop placeholder. */
 const unplannedPickupWithinHours = 24;
+
+/** The settings the alerts read; the review and the cards use the same values. */
+export type AlertSettings = Pick<
+  MetricSettings,
+  "unansweredAfterMinutes" | "onTimeToleranceMinutes"
+>;
 
 export type ShipmentAlert =
   | { kind: "unanswered_request"; since: Date }
@@ -21,13 +32,17 @@ export type AlertInput = {
 };
 
 /** Conditions that need a dispatcher's attention right now (ADR 0003: derived, never stored). */
-export function getShipmentAlerts(shipment: AlertInput, now: Date): ShipmentAlert[] {
+export function getShipmentAlerts(
+  shipment: AlertInput,
+  now: Date,
+  settings: AlertSettings,
+): ShipmentAlert[] {
   const alerts: ShipmentAlert[] = [];
   const nowMs = now.getTime();
 
   switch (shipment.status) {
     case ShipmentStatus.UNHANDLED:
-      if (nowMs - shipment.requestedAt.getTime() >= unansweredRequestAfterHours * hourMs) {
+      if (nowMs - shipment.requestedAt.getTime() >= unansweredAfterMs(settings)) {
         alerts.push({ kind: "unanswered_request", since: shipment.requestedAt });
       }
       break;
@@ -41,14 +56,17 @@ export function getShipmentAlerts(shipment: AlertInput, now: Date): ShipmentAler
         alerts.push({ kind: "pickup_soon_unplanned", pickupAt: shipment.pickupAt });
       }
       break;
-    case ShipmentStatus.IN_TRANSIT:
+    case ShipmentStatus.IN_TRANSIT: {
       if (shipment.pickupAt === null) {
         alerts.push({ kind: "missing_schedule" });
       }
-      if (shipment.deliveryAt !== null && shipment.deliveryAt.getTime() < nowMs) {
-        alerts.push({ kind: "delivery_overdue", deliveryAt: shipment.deliveryAt });
+      // Same rule as the card's delivery line: past plan by more than the on-time tolerance.
+      const delivery = stopTiming(shipment.deliveryAt, null, now, onTimeToleranceMs(settings));
+      if (delivery.kind === "overdue") {
+        alerts.push({ kind: "delivery_overdue", deliveryAt: delivery.plannedAt });
       }
       break;
+    }
     case ShipmentStatus.COMPLETED:
     case ShipmentStatus.CANCELLED:
       break;

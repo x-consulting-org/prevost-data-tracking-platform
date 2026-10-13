@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { getDispatcherBoard } from "@/actions/shipments";
-import { DispatcherBoard } from "@/components/dispatchers/dispatcher-board";
-import { DispatcherBoardSkeleton } from "@/components/dispatchers/dispatcher-board-skeleton";
+import { getPerformanceReview } from "@/actions/performance";
+import { MetricRanking } from "@/components/dispatchers/metric-ranking";
+import { PerformanceReview, ScaleLegend } from "@/components/dispatchers/performance-review";
+import { PerformanceReviewSkeleton } from "@/components/dispatchers/performance-review-skeleton";
+import { ReviewToolbar } from "@/components/dispatchers/review-toolbar";
 import { dispatchersSearchParamsSchema } from "@/lib/shipments/schemas";
 
 export const metadata: Metadata = {
@@ -12,34 +14,46 @@ export const metadata: Metadata = {
 
 export default function DispatchersPage({ searchParams }: PageProps<"/dispatchers">) {
   return (
-    <>
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Kollégák</h1>
-        <p className="text-sm text-text-secondary">
-          Ki mivel foglalkozik, és kinél van figyelmet igénylő fuvar.
-        </p>
-      </header>
-      <Suspense fallback={<DispatcherBoardSkeleton />}>
-        <Dispatchers searchParams={searchParams} />
-      </Suspense>
-    </>
+    <Suspense fallback={<PerformanceReviewSkeleton />}>
+      <Review searchParams={searchParams} />
+    </Suspense>
   );
 }
 
-async function Dispatchers({ searchParams }: Pick<PageProps<"/dispatchers">, "searchParams">) {
+async function Review({ searchParams }: Pick<PageProps<"/dispatchers">, "searchParams">) {
   const parsed = dispatchersSearchParamsSchema.safeParse(await searchParams);
   if (!parsed.success) {
     notFound();
   }
+  const { view, dispatcherId } = parsed.data;
 
-  const board = await getDispatcherBoard();
-  const focusedDispatcherId = parsed.data.dispatcher;
+  const review = await getPerformanceReview();
   if (
-    focusedDispatcherId !== undefined &&
-    !board.columns.some((column) => column.dispatcher.id === focusedDispatcherId)
+    dispatcherId !== undefined &&
+    !review.dispatchers.some((row) => row.dispatcher.id === dispatcherId)
   ) {
     notFound();
   }
 
-  return <DispatcherBoard board={board} focusedDispatcherId={focusedDispatcherId} />;
+  return (
+    <>
+      <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Kollégák</h1>
+          <p className="text-sm text-text-secondary">
+            Az elmúlt {review.settings.reviewWindowDays} nap, a csapathoz mérve.
+          </p>
+        </div>
+        <ReviewToolbar view={view} />
+      </header>
+      {view === "people" ? (
+        <>
+          <ScaleLegend />
+          <PerformanceReview review={review} focusedDispatcherId={dispatcherId} />
+        </>
+      ) : (
+        <MetricRanking review={review} />
+      )}
+    </>
+  );
 }

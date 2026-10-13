@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   dispatchersHref,
   dispatchersSearchParamsSchema,
+  type DispatchersSearchParams,
   shipmentsHref,
   shipmentsSearchParamsSchema,
   type ShipmentsSearchParams,
@@ -47,9 +48,23 @@ describe("shipments URL", () => {
 });
 
 describe("dispatchers URL", () => {
-  it("parses back to the focused dispatcher", () => {
-    expect(
-      dispatchersSearchParamsSchema.parse(searchParams(dispatchersHref(dispatcherId))),
-    ).toEqual({ dispatcher: dispatcherId });
+  it("parses back to the state it was built from", () => {
+    const states: DispatchersSearchParams[] = [
+      { view: "people", dispatcherId },
+      { view: "metrics", dispatcherId: undefined },
+    ];
+    for (const state of states) {
+      expect(dispatchersSearchParamsSchema.parse(searchParams(dispatchersHref(state)))).toEqual(
+        state,
+      );
+    }
+  });
+
+  it("leaves the defaults out", () => {
+    expect(dispatchersHref({ view: "people", dispatcherId: undefined })).toBe("/dispatchers");
+  });
+
+  it("rejects a view the screen does not know", () => {
+    expect(dispatchersSearchParamsSchema.safeParse({ view: "list" }).success).toBe(false);
   });
 });

@@ -32,9 +32,12 @@ Start Postgres, generate the Prisma client, apply migrations and load the demo d
 
 ```bash
 pnpm db:up
+pnpm prisma:generate
 pnpm prisma:migrate
 pnpm db:seed
 ```
+
+Prisma 7's `migrate dev` no longer generates the client, so after pulling a schema change run `pnpm prisma:generate` (or `pnpm install`) before seeding or starting the app; a stale client fails with `Cannot read properties of undefined` on the new models.
 
 `pnpm db:seed` replaces all shipment data with a fresh, deterministic demo set (times are relative to the run) and creates or updates the demo user with `DEMO_USER_PASSWORD`. Prisma 7 does not run it automatically after migrations. Never run it against a database that holds real shipments.
 
@@ -88,7 +91,7 @@ src/
   components/
     auth/              # Login form
     data-table/        # Carbon pagination, column fitting and resizing for TanStack Table
-    dispatchers/       # Kollégák board
+    dispatchers/       # Kollégák: review cards and metric ranking, the Mérőszámok settings form with its live preview
     feedback/          # Error and not-found messages shared by the boundaries
     providers/         # QueryProvider
     shell/             # Dark sidebar / top bar: nav, live refresh, sync status, user menu
@@ -102,6 +105,7 @@ src/
     pagination.ts      # Zod list/pagination schemas + PaginatedResult
     prisma.ts
     query-keys.ts      # TanStack Query key factory
+    performance/       # Pure performance review: metrics, team comparison, verdicts
     shipments/         # Pure domain rules: statuses, alerts, grouping, progress, schemas, sources
   server/              # Server-only read models and identity (Prisma lives here)
   instrumentation.ts   # Checks the environment once at server start

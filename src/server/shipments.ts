@@ -1,16 +1,20 @@
 import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
-import { ShipmentStatus, type DataSource } from "@/generated/prisma/enums";
+import { ShipmentEventType, ShipmentStatus, type DataSource } from "@/generated/prisma/enums";
 import { toPaginatedResult, toSkipTake, type PaginatedResult } from "@/lib/pagination";
+import type { MetricSettings } from "@/lib/performance/settings";
 import { prisma } from "@/lib/prisma";
-import { getShipmentAlerts, type ShipmentAlert } from "@/lib/shipments/alerts";
+import { getShipmentAlerts, type AlertSettings, type ShipmentAlert } from "@/lib/shipments/alerts";
+import { groupByStatus, type StatusColumn } from "@/lib/shipments/grouping";
 import {
-  groupByDispatcher,
-  groupByStatus,
-  type DispatcherColumn,
-  type StatusColumn,
-} from "@/lib/shipments/grouping";
+  milestoneEventTypes,
+  milestonesOf,
+  pickupsByVehicle,
+  truckTurnaround,
+  type ShipmentMilestones,
+  type TruckTurnaround,
+} from "@/lib/shipments/milestones";
 import type {
   ShipmentFilter,
   ShipmentPageInput,
@@ -19,6 +23,14 @@ import type {
 import { externalSources } from "@/lib/shipments/sources";
 import { boardStatuses, boardStatusesFor, closedVisibleDays } from "@/lib/shipments/status";
 import { dayMs } from "@/lib/time";
+import { findMetricSettings } from "@/server/metric-settings";
+
+/** The events `milestonesOf` reads, oldest first. */
+export const milestoneEventsSelect = {
+  where: { type: { in: [...milestoneEventTypes] } },
+  select: { type: true, occurredAt: true },
+  orderBy: [{ occurredAt: "asc" }, { id: "asc" }],
+} satisfies Prisma.Shipment$eventsArgs;
 
 const shipmentCardSelect = {
   id: true,
@@ -33,8 +45,10 @@ const shipmentCardSelect = {
   destinationCity: true,
   destinationCountry: true,
   dispatcherId: true,
+  vehicleId: true,
   dispatcher: { select: { id: true, name: true } },
   customer: { select: { id: true, name: true } },
+  events: milestoneEventsSelect,
 } satisfies Prisma.ShipmentSelect;
 
 const shipmentDetailSelect = {
@@ -54,18 +68,22 @@ type ShipmentCardRow = Prisma.ShipmentGetPayload<{ select: typeof shipmentCardSe
 type ShipmentDetailRow = Prisma.ShipmentGetPayload<{ select: typeof shipmentDetailSelect }>;
 
 export type DispatcherSummary = Prisma.DispatcherGetPayload<{ select: typeof dispatcherSelect }>;
-export type ShipmentCard = ShipmentCardRow & { alerts: ShipmentAlert[] };
-export type ShipmentDetail = ShipmentDetailRow & { alerts: ShipmentAlert[] };
+/** What the cards, the table and the detail add to a row: alerts, milestones, the truck's turn. */
+type Derived = {
+  alerts: ShipmentAlert[];
+  milestones: ShipmentMilestones;
+  turnaround: TruckTurnaround;
+};
+
+export type ShipmentCard = ShipmentCardRow & Derived;
+export type ShipmentDetail = ShipmentDetailRow & Derived;
 
 export type StatusBoard = {
   /** The `now` alerts were computed against; relative times in the UI use it too. */
   generatedAt: Date;
+  /** The thresholds the alerts used; the cards judge their clocks by the same ones. */
+  settings: MetricSettings;
   columns: StatusColumn<ShipmentCard>[];
-};
-
-export type DispatcherBoard = {
-  generatedAt: Date;
-  columns: DispatcherColumn<DispatcherSummary, ShipmentCard>[];
 };
 
 export type SyncState =
@@ -118,31 +136,57 @@ function boardWhere(filter: ShipmentFilter, now: Date): Prisma.ShipmentWhereInpu
   };
 }
 
-function withAlerts<TShipment extends ShipmentCardRow>(shipment: TShipment, now: Date) {
-  return { ...shipment, alerts: getShipmentAlerts(shipment, now) };
+/**
+ * Adds what is derived from the current time and the events. A delivered shipment's truck is
+ * followed to its next actual pickup, which may belong to a shipment outside `shipments`.
+ */
+async function withDerived<TShipment extends ShipmentCardRow>(
+  shipments: readonly TShipment[],
+  now: Date,
+  settings: AlertSettings,
+): Promise<(TShipment & Derived)[]> {
+  const withMilestones = shipments.map((shipment) => ({
+    shipment,
+    milestones: milestonesOf(shipment.events),
+  }));
+  const unloadedVehicleIds = [
+    ...new Set(
+      withMilestones.flatMap(({ shipment, milestones }) =>
+        shipment.vehicleId !== null && milestones.deliveredAt !== null ? [shipment.vehicleId] : [],
+      ),
+    ),
+  ];
+  const pickups =
+    unloadedVehicleIds.length === 0
+      ? []
+      : await prisma.shipmentEvent.findMany({
+          where: {
+            type: ShipmentEventType.PICKED_UP,
+            shipment: { vehicleId: { in: unloadedVehicleIds } },
+          },
+          select: { occurredAt: true, shipment: { select: { vehicleId: true } } },
+          orderBy: [{ occurredAt: "asc" }, { id: "asc" }],
+        });
+  const pickupsOf = pickupsByVehicle(
+    pickups.map((pickup) => ({
+      vehicleId: pickup.shipment.vehicleId,
+      pickedUpAt: pickup.occurredAt,
+    })),
+  );
+
+  return withMilestones.map(({ shipment, milestones }) => ({
+    ...shipment,
+    alerts: getShipmentAlerts(shipment, now, settings),
+    milestones,
+    turnaround: truckTurnaround(milestones.deliveredAt, shipment.vehicleId, pickupsOf),
+  }));
 }
 
 export async function findStatusBoard(filter: ShipmentFilter, now: Date): Promise<StatusBoard> {
-  const shipments = await prisma.shipment.findMany({
-    where: boardWhere(filter, now),
-    select: shipmentCardSelect,
-    orderBy: boardOrderBy,
-  });
-
-  return {
-    generatedAt: now,
-    columns: groupByStatus(
-      shipments.map((shipment) => withAlerts(shipment, now)),
-      boardStatusesFor(filter),
-    ),
-  };
-}
-
-export async function findDispatcherBoard(now: Date): Promise<DispatcherBoard> {
-  const [dispatchers, shipments] = await Promise.all([
-    findDispatchers(),
+  const [{ settings }, shipments] = await Promise.all([
+    findMetricSettings(),
     prisma.shipment.findMany({
-      where: boardWhere({ pickupWithin24h: false, includeCancelled: false }, now),
+      where: boardWhere(filter, now),
       select: shipmentCardSelect,
       orderBy: boardOrderBy,
     }),
@@ -150,10 +194,8 @@ export async function findDispatcherBoard(now: Date): Promise<DispatcherBoard> {
 
   return {
     generatedAt: now,
-    columns: groupByDispatcher(
-      dispatchers,
-      shipments.map((shipment) => withAlerts(shipment, now)),
-    ),
+    settings,
+    columns: groupByStatus(await withDerived(shipments, now, settings), boardStatusesFor(filter)),
   };
 }
 
@@ -167,18 +209,21 @@ export async function listShipments(
     ? [...sortableColumnOrderBy[sort.id](sort.desc ? "desc" : "asc"), idTiebreaker]
     : boardOrderBy;
 
-  const [shipments, rowCount] = await prisma.$transaction([
-    prisma.shipment.findMany({
-      where,
-      select: shipmentCardSelect,
-      orderBy,
-      ...toSkipTake({ pageIndex, pageSize }),
-    }),
-    prisma.shipment.count({ where }),
+  const [{ settings }, [shipments, rowCount]] = await Promise.all([
+    findMetricSettings(),
+    prisma.$transaction([
+      prisma.shipment.findMany({
+        where,
+        select: shipmentCardSelect,
+        orderBy,
+        ...toSkipTake({ pageIndex, pageSize }),
+      }),
+      prisma.shipment.count({ where }),
+    ]),
   ]);
 
   return toPaginatedResult({
-    items: shipments.map((shipment) => withAlerts(shipment, now)),
+    items: await withDerived(shipments, now, settings),
     rowCount,
     pageIndex,
     pageSize,
@@ -187,12 +232,14 @@ export async function listShipments(
 
 /** `null` means there is no shipment with this id. */
 export async function findShipmentDetail(id: string, now: Date): Promise<ShipmentDetail | null> {
-  const shipment = await prisma.shipment.findUnique({
-    where: { id },
-    select: shipmentDetailSelect,
-  });
+  const [{ settings }, shipment] = await Promise.all([
+    findMetricSettings(),
+    prisma.shipment.findUnique({ where: { id }, select: shipmentDetailSelect }),
+  ]);
 
-  return shipment && withAlerts(shipment, now);
+  if (shipment === null) return null;
+  const [detail] = await withDerived([shipment], now, settings);
+  return detail;
 }
 
 export async function findDispatchers(): Promise<DispatcherSummary[]> {

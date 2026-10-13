@@ -9,7 +9,6 @@ import {
 } from "@/lib/shipments/schemas";
 import { requirePrincipal } from "@/server/principal";
 import {
-  findDispatcherBoard,
   findDispatchers,
   findShipmentDetail,
   findStatusBoard,
@@ -30,11 +29,6 @@ export async function listShipmentsPage(input: z.input<typeof shipmentPageInputS
   await requirePrincipal();
   const pageInput = parseActionInput(shipmentPageInputSchema, input);
   return listShipments(pageInput, new Date());
-}
-
-export async function getDispatcherBoard() {
-  await requirePrincipal();
-  return findDispatcherBoard(new Date());
 }
 
 export async function getShipmentDetail(input: z.input<typeof shipmentDetailInputSchema>) {
