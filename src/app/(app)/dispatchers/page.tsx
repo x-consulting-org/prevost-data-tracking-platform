@@ -4,7 +4,6 @@ import { Suspense } from "react";
 import { getPerformanceReview } from "@/actions/performance";
 import { PerformanceReview } from "@/components/dispatchers/performance-review";
 import { PerformanceReviewSkeleton } from "@/components/dispatchers/performance-review-skeleton";
-import { reviewWindowDays } from "@/lib/performance/review";
 import { dispatchersSearchParamsSchema } from "@/lib/shipments/schemas";
 
 export const metadata: Metadata = {
@@ -13,17 +12,9 @@ export const metadata: Metadata = {
 
 export default function DispatchersPage({ searchParams }: PageProps<"/dispatchers">) {
   return (
-    <>
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Kollégák</h1>
-        <p className="text-sm text-text-secondary">
-          Az elmúlt {reviewWindowDays} nap működése kollégánként, a csapathoz mérve.
-        </p>
-      </header>
-      <Suspense fallback={<PerformanceReviewSkeleton />}>
-        <Review searchParams={searchParams} />
-      </Suspense>
-    </>
+    <Suspense fallback={<PerformanceReviewSkeleton />}>
+      <Review searchParams={searchParams} />
+    </Suspense>
   );
 }
 

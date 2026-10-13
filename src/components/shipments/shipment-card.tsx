@@ -6,10 +6,14 @@ import { ShipmentReferenceButton } from "@/components/shipments/shipment-referen
 import { statusStyle } from "@/components/shipments/status-badge";
 import { formatDateTime, formatDuration, formatRelative } from "@/lib/format";
 import { reviewMetricText } from "@/lib/performance/review";
-import { unansweredRequestAfterHours, type ShipmentAlert } from "@/lib/shipments/alerts";
+import {
+  onTimeToleranceMs,
+  unansweredAfterMs,
+  type MetricSettings,
+} from "@/lib/performance/settings";
+import type { ShipmentAlert } from "@/lib/shipments/alerts";
 import { isLate, stopTiming, type StopTiming } from "@/lib/shipments/milestones";
 import { scheduleProgress } from "@/lib/shipments/progress";
-import { hourMs } from "@/lib/time";
 import type { ShipmentCard as ShipmentCardData } from "@/server/shipments";
 
 const stopLabel = {
@@ -22,10 +26,12 @@ function StopTime({
   stop,
   timing,
   now,
+  toleranceMs,
 }: {
   stop: keyof typeof stopLabel;
   timing: StopTiming;
   now: Date;
+  toleranceMs: number;
 }) {
   const label = stopLabel[stop];
   const name = <span className="font-medium text-text-secondary">{label.planned}</span>;
@@ -43,7 +49,7 @@ function StopTime({
           {name}{" "}
           <time dateTime={timing.plannedAt.toISOString()}>
             <span className="text-text-secondary">{formatRelative(timing.plannedAt, now)}</span>
-            <span className="text-text-helper"> · {formatDateTime(timing.plannedAt)}</span>
+            <span className="text-text-helper">, {formatDateTime(timing.plannedAt)}</span>
           </time>
         </p>
       );
@@ -64,7 +70,7 @@ function StopTime({
         </p>
       );
     case "done": {
-      const late = isLate(timing.delayMs);
+      const late = isLate(timing.delayMs, toleranceMs);
       return (
         <p
           className="text-xs tabular-nums"
@@ -97,12 +103,14 @@ function Stop({
   country,
   timing,
   now,
+  toleranceMs,
 }: {
   stop: keyof typeof stopLabel;
   city: string;
   country: string;
   timing: StopTiming;
   now: Date;
+  toleranceMs: number;
 }) {
   // The city gets the full width; the time below it is always named.
   return (
@@ -113,7 +121,7 @@ function Stop({
         </span>
         <CountryCode code={country} />
       </p>
-      <StopTime stop={stop} timing={timing} now={now} />
+      <StopTime stop={stop} timing={timing} now={now} toleranceMs={toleranceMs} />
     </div>
   );
 }
@@ -122,7 +130,15 @@ function Stop({
  * The route: pickup above delivery, joined by a line. On the road, the line fills with the
  * share of the planned drive time that has passed.
  */
-function Route({ shipment, now }: { shipment: ShipmentCardData; now: Date }) {
+function Route({
+  shipment,
+  now,
+  toleranceMs,
+}: {
+  shipment: ShipmentCardData;
+  now: Date;
+  toleranceMs: number;
+}) {
   // Only a shipment on the road is somewhere between its pickup and its delivery.
   const progress = scheduleProgress(shipment.pickupAt, shipment.deliveryAt, now);
   const elapsedShare =
@@ -150,8 +166,9 @@ function Route({ shipment, now }: { shipment: ShipmentCardData; now: Date }) {
         stop="pickup"
         city={shipment.originCity}
         country={shipment.originCountry}
-        timing={stopTiming(shipment.pickupAt, shipment.milestones.pickedUpAt, now)}
+        timing={stopTiming(shipment.pickupAt, shipment.milestones.pickedUpAt, now, toleranceMs)}
         now={now}
+        toleranceMs={toleranceMs}
       />
       <span aria-hidden="true" className="relative">
         <span className="absolute top-[0.4rem] left-0 size-2.5 rounded-full border-2 border-border-strong bg-layer" />
@@ -160,8 +177,9 @@ function Route({ shipment, now }: { shipment: ShipmentCardData; now: Date }) {
         stop="delivery"
         city={shipment.destinationCity}
         country={shipment.destinationCountry}
-        timing={stopTiming(shipment.deliveryAt, shipment.milestones.deliveredAt, now)}
+        timing={stopTiming(shipment.deliveryAt, shipment.milestones.deliveredAt, now, toleranceMs)}
         now={now}
+        toleranceMs={toleranceMs}
       />
       {elapsedShare === null ? null : (
         <p className="sr-only">A tervezett menetidő {Math.round(elapsedShare * 100)}%-a telt el.</p>
@@ -183,7 +201,11 @@ type MetricLine = {
  * first reply and the T-Port trip took, and how soon the unloaded truck got its next load. A
  * clock still running reads "még nincs" with the time so far; the board refreshes it.
  */
-function metricLines(shipment: ShipmentCardData, now: Date): MetricLine[] {
+function metricLines(
+  shipment: ShipmentCardData,
+  now: Date,
+  settings: MetricSettings,
+): MetricLine[] {
   const { status, requestedAt, milestones, turnaround } = shipment;
   const since = (from: Date, to: Date) => to.getTime() - from.getTime();
   const lines: MetricLine[] = [];
@@ -193,7 +215,7 @@ function metricLines(shipment: ShipmentCardData, now: Date): MetricLine[] {
     lines.push({
       id: "firstResponse",
       text: formatDuration(tookMs),
-      slow: tookMs >= unansweredRequestAfterHours * hourMs,
+      slow: tookMs >= unansweredAfterMs(settings),
       running: false,
     });
   } else if (status === ShipmentStatus.UNHANDLED) {
@@ -201,7 +223,7 @@ function metricLines(shipment: ShipmentCardData, now: Date): MetricLine[] {
     lines.push({
       id: "firstResponse",
       text: `még nincs, ${formatDuration(waitingMs)}`,
-      slow: waitingMs >= unansweredRequestAfterHours * hourMs,
+      slow: waitingMs >= unansweredAfterMs(settings),
       running: true,
     });
   }
@@ -273,20 +295,28 @@ function MetricLines({ lines }: { lines: MetricLine[] }) {
  */
 const inlineAlertKinds = new Set<ShipmentAlert["kind"]>(["unanswered_request", "delivery_overdue"]);
 
-export function ShipmentCard({ shipment, now }: { shipment: ShipmentCardData; now: Date }) {
+export function ShipmentCard({
+  shipment,
+  now,
+  settings,
+}: {
+  shipment: ShipmentCardData;
+  now: Date;
+  settings: MetricSettings;
+}) {
   return (
     <article
       aria-label={shipment.reference}
-      className="group relative flex flex-col gap-3 rounded-xl border border-border-subtle bg-layer p-3.5 transition-[box-shadow,border-color,translate] duration-200 ease-out hover:-translate-y-0.5 hover:border-border-strong hover:shadow-[0_6px_20px_-8px_rgb(19_18_16/0.25)]"
+      className="group relative flex flex-col gap-3 rounded-xl border border-border-subtle bg-layer p-3.5 transition-colors hover:border-border-strong"
     >
       <header className="flex items-baseline justify-between gap-3">
         <ShipmentReferenceButton shipment={shipment} stretched />
         <p className="truncate text-xs text-text-secondary">{shipment.customer.name}</p>
       </header>
 
-      <Route shipment={shipment} now={now} />
+      <Route shipment={shipment} now={now} toleranceMs={onTimeToleranceMs(settings)} />
 
-      <MetricLines lines={metricLines(shipment, now)} />
+      <MetricLines lines={metricLines(shipment, now, settings)} />
 
       <AlertList alerts={shipment.alerts.filter((alert) => !inlineAlertKinds.has(alert.kind))} />
 

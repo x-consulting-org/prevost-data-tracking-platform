@@ -197,3 +197,26 @@ model SourceSync {
 
   @@map("source_sync")
 }
+
+/// The thresholds of the alerts, the shipment cards and the performance review, edited on the
+/// Mérőszámok page. Exactly one row (id 1): the migration inserts it and a CHECK keeps it single.
+model MetricSettings {
+  id                     Int      @id @default(1)
+  /// The review looks back this many days.
+  reviewWindowDays       Int
+  /// An unhandled request alerts, and counts as unanswered, from this many minutes.
+  unansweredAfterMinutes Int
+  /// A pickup or delivery this many minutes after plan still counts as on time.
+  onTimeToleranceMinutes Int
+  /// A shipment counts as repeatedly changed from this many schedule or detail changes.
+  repeatedChangeCount    Int
+  /// Within this percentage of the team value a colleague is on par.
+  onParTolerancePercent  Int
+  /// A median needs at least this many cases, a share at least `minShareSample`.
+  minMedianSample        Int
+  minShareSample         Int
+  /// Optimistic concurrency: a save names the version it edited.
+  updatedAt              DateTime @updatedAt
+
+  @@map("metric_settings")
+}

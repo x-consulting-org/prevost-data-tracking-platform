@@ -4,13 +4,13 @@ import type { Prisma } from "@/generated/prisma/client";
 import { ShipmentEventType, ShipmentStatus } from "@/generated/prisma/enums";
 import {
   buildPerformanceReview,
-  reviewWindowDays,
+  reviewWindowStart,
   type PerformanceReview,
   type ReviewShipment,
 } from "@/lib/performance/review";
 import { prisma } from "@/lib/prisma";
 import { milestoneEventTypes, milestonesOf } from "@/lib/shipments/milestones";
-import { dayMs } from "@/lib/time";
+import { findMetricSettings } from "@/server/metric-settings";
 import { findDispatchers, type DispatcherSummary } from "@/server/shipments";
 
 const changeEventTypes = [ShipmentEventType.SCHEDULE_CHANGED, ShipmentEventType.DETAILS_CHANGED];
@@ -46,7 +46,9 @@ function toReviewShipment({ events, _count, ...shipment }: ReviewShipmentRow): R
 export async function findPerformanceReview(
   now: Date,
 ): Promise<PerformanceReview<DispatcherSummary>> {
-  const windowStart = new Date(now.getTime() - reviewWindowDays * dayMs);
+  // The settings decide the window, so they are read first.
+  const { settings } = await findMetricSettings();
+  const windowStart = reviewWindowStart(now, settings);
   const [dispatchers, shipments] = await Promise.all([
     findDispatchers(),
     prisma.shipment.findMany({
@@ -63,5 +65,5 @@ export async function findPerformanceReview(
     }),
   ]);
 
-  return buildPerformanceReview(dispatchers, shipments.map(toReviewShipment), now);
+  return buildPerformanceReview(dispatchers, shipments.map(toReviewShipment), now, settings);
 }

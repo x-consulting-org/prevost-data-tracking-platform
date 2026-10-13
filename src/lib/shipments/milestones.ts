@@ -1,5 +1,4 @@
 import { ShipmentEventType } from "@/generated/prisma/enums";
-import { minuteMs } from "@/lib/time";
 
 /**
  * Events that mark a step of a shipment. The performance review measures the time between them,
@@ -35,19 +34,22 @@ export function milestonesOf(
   };
 }
 
-/** A pickup or delivery this much after plan still counts as on time. A workshop placeholder. */
-export const onTimeToleranceMs = 30 * minuteMs;
-
 /** A pickup or delivery: the plan next to what T-Port reported. */
 export type StopTiming =
   | { kind: "unplanned" }
   | { kind: "upcoming"; plannedAt: Date }
-  /** The planned time has passed by more than the tolerance and T-Port reported nothing. */
+  /** The planned time has passed by more than `toleranceMs` and T-Port reported nothing. */
   | { kind: "overdue"; plannedAt: Date; overdueMs: number }
   /** Done. `delayMs` is null when there was no plan to compare with; negative means early. */
   | { kind: "done"; actualAt: Date; plannedAt: Date | null; delayMs: number | null };
 
-export function stopTiming(plannedAt: Date | null, actualAt: Date | null, now: Date): StopTiming {
+/** `toleranceMs`: how long after plan still counts as on time (`onTimeToleranceMs(settings)`). */
+export function stopTiming(
+  plannedAt: Date | null,
+  actualAt: Date | null,
+  now: Date,
+  toleranceMs: number,
+): StopTiming {
   if (actualAt !== null) {
     return {
       kind: "done",
@@ -58,13 +60,13 @@ export function stopTiming(plannedAt: Date | null, actualAt: Date | null, now: D
   }
   if (plannedAt === null) return { kind: "unplanned" };
   const overdueMs = now.getTime() - plannedAt.getTime();
-  return overdueMs > onTimeToleranceMs
+  return overdueMs > toleranceMs
     ? { kind: "overdue", plannedAt, overdueMs }
     : { kind: "upcoming", plannedAt };
 }
 
-export function isLate(delayMs: number | null): boolean {
-  return delayMs !== null && delayMs > onTimeToleranceMs;
+export function isLate(delayMs: number | null, toleranceMs: number): boolean {
+  return delayMs !== null && delayMs > toleranceMs;
 }
 
 /** The earliest pickup at or after `unloadedAt`, from the same vehicle's pickups. */

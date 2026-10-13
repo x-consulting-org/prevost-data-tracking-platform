@@ -88,7 +88,7 @@ src/
   components/
     auth/              # Login form
     data-table/        # Carbon pagination, column fitting and resizing for TanStack Table
-    dispatchers/       # Kollégák: performance review cards
+    dispatchers/       # Kollégák: performance review cards, the Mérőszámok rules and settings form
     feedback/          # Error and not-found messages shared by the boundaries
     providers/         # QueryProvider
     shell/             # Dark sidebar / top bar: nav, live refresh, sync status, user menu

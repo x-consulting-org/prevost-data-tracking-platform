@@ -10,6 +10,7 @@ import {
 
 const now = new Date("2026-10-13T10:00:00Z");
 const hourMs = 3_600_000;
+const toleranceMs = 30 * 60_000;
 const hoursFromNow = (hours: number) => new Date(now.getTime() + hours * hourMs);
 
 describe("milestonesOf", () => {
@@ -31,32 +32,35 @@ describe("milestonesOf", () => {
 
 describe("stopTiming", () => {
   it("compares what T-Port reported with the plan", () => {
-    expect(stopTiming(hoursFromNow(-3), hoursFromNow(-2), now)).toEqual({
+    expect(stopTiming(hoursFromNow(-3), hoursFromNow(-2), now, toleranceMs)).toEqual({
       kind: "done",
       actualAt: hoursFromNow(-2),
       plannedAt: hoursFromNow(-3),
       delayMs: hourMs,
     });
-    expect(stopTiming(null, hoursFromNow(-2), now)).toMatchObject({ kind: "done", delayMs: null });
+    expect(stopTiming(null, hoursFromNow(-2), now, toleranceMs)).toMatchObject({
+      kind: "done",
+      delayMs: null,
+    });
   });
 
   it("calls a passed plan overdue only beyond the tolerance", () => {
-    expect(stopTiming(hoursFromNow(-0.5), null, now)).toEqual({
+    expect(stopTiming(hoursFromNow(-0.5), null, now, toleranceMs)).toEqual({
       kind: "upcoming",
       plannedAt: hoursFromNow(-0.5),
     });
-    expect(stopTiming(hoursFromNow(-2), null, now)).toEqual({
+    expect(stopTiming(hoursFromNow(-2), null, now, toleranceMs)).toEqual({
       kind: "overdue",
       plannedAt: hoursFromNow(-2),
       overdueMs: 2 * hourMs,
     });
-    expect(stopTiming(null, null, now)).toEqual({ kind: "unplanned" });
+    expect(stopTiming(null, null, now, toleranceMs)).toEqual({ kind: "unplanned" });
   });
 
   it("is late from 30 minutes after plan", () => {
-    expect(isLate(30 * 60_000)).toBe(false);
-    expect(isLate(31 * 60_000)).toBe(true);
-    expect(isLate(null)).toBe(false);
+    expect(isLate(30 * 60_000, toleranceMs)).toBe(false);
+    expect(isLate(31 * 60_000, toleranceMs)).toBe(true);
+    expect(isLate(null, toleranceMs)).toBe(false);
   });
 });
 
