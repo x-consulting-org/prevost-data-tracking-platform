@@ -3,17 +3,10 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { ShipmentEventType, ShipmentStatus, type DataSource } from "@/generated/prisma/enums";
 import { toPaginatedResult, toSkipTake, type PaginatedResult } from "@/lib/pagination";
-import { prisma } from "@/lib/prisma";
-import { findMetricSettings } from "@/server/metric-settings";
 import type { MetricSettings } from "@/lib/performance/settings";
+import { prisma } from "@/lib/prisma";
 import { getShipmentAlerts, type AlertSettings, type ShipmentAlert } from "@/lib/shipments/alerts";
 import { groupByStatus, type StatusColumn } from "@/lib/shipments/grouping";
-import type {
-  ShipmentFilter,
-  ShipmentPageInput,
-  SortableShipmentColumn,
-} from "@/lib/shipments/schemas";
-import { externalSources } from "@/lib/shipments/sources";
 import {
   milestoneEventTypes,
   milestonesOf,
@@ -22,8 +15,22 @@ import {
   type ShipmentMilestones,
   type TruckTurnaround,
 } from "@/lib/shipments/milestones";
+import type {
+  ShipmentFilter,
+  ShipmentPageInput,
+  SortableShipmentColumn,
+} from "@/lib/shipments/schemas";
+import { externalSources } from "@/lib/shipments/sources";
 import { boardStatuses, boardStatusesFor, closedVisibleDays } from "@/lib/shipments/status";
 import { dayMs } from "@/lib/time";
+import { findMetricSettings } from "@/server/metric-settings";
+
+/** The events `milestonesOf` reads, oldest first. */
+export const milestoneEventsSelect = {
+  where: { type: { in: [...milestoneEventTypes] } },
+  select: { type: true, occurredAt: true },
+  orderBy: [{ occurredAt: "asc" }, { id: "asc" }],
+} satisfies Prisma.Shipment$eventsArgs;
 
 const shipmentCardSelect = {
   id: true,
@@ -41,11 +48,7 @@ const shipmentCardSelect = {
   vehicleId: true,
   dispatcher: { select: { id: true, name: true } },
   customer: { select: { id: true, name: true } },
-  events: {
-    where: { type: { in: [...milestoneEventTypes] } },
-    select: { type: true, occurredAt: true },
-    orderBy: [{ occurredAt: "asc" }, { id: "asc" }],
-  },
+  events: milestoneEventsSelect,
 } satisfies Prisma.ShipmentSelect;
 
 const shipmentDetailSelect = {

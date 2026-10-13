@@ -6,6 +6,8 @@ import { MetricInfo } from "@/components/dispatchers/metric-info";
 import { formatMetric, sampleText, verdictStyle } from "@/components/dispatchers/review-format";
 import { ScrollIntoView } from "@/components/dispatchers/scroll-into-view";
 import {
+  countVerdicts,
+  insufficientDataLabel,
   reviewMetricIds,
   reviewMetricText,
   verdictLabel,
@@ -19,19 +21,6 @@ import {
 import { shipmentsHref } from "@/lib/shipments/schemas";
 import type { DispatcherSummary } from "@/server/shipments";
 
-/** How many metrics landed on each verdict, for the chips under a colleague's name. */
-function verdictCounts(metrics: Record<ReviewMetricId, DispatcherMetric>) {
-  const verdicts = reviewMetricIds.flatMap((id) => {
-    const metric = metrics[id];
-    return metric.kind === "measured" ? [metric.verdict] : [];
-  });
-  return {
-    measured: verdicts.length,
-    strength: verdicts.filter((verdict) => verdict === "strength").length,
-    needsWork: verdicts.filter((verdict) => verdict === "needs_work").length,
-  };
-}
-
 function Pill({ tone, children }: { tone: Verdict; children: ReactNode }) {
   return (
     <span
@@ -43,21 +32,28 @@ function Pill({ tone, children }: { tone: Verdict; children: ReactNode }) {
 }
 
 function VerdictChips({ metrics }: { metrics: Record<ReviewMetricId, DispatcherMetric> }) {
-  const counts = verdictCounts(metrics);
-  if (counts.measured === 0) return <Pill tone="on_par">Még kevés az adat</Pill>;
-  if (counts.strength === 0 && counts.needsWork === 0) {
+  const counts = countVerdicts(reviewMetricIds.map((id) => metrics[id]));
+  if (counts.strength + counts.on_par + counts.needs_work === 0) {
+    return <Pill tone="on_par">Még kevés az adat</Pill>;
+  }
+  if (counts.strength === 0 && counts.needs_work === 0) {
     return <Pill tone="on_par">Minden mutató csapatszinten</Pill>;
   }
 
   return (
     <>
       {counts.strength > 0 ? <Pill tone="strength">{counts.strength} erősség</Pill> : null}
-      {counts.needsWork > 0 ? <Pill tone="needs_work">{counts.needsWork} fejlesztendő</Pill> : null}
+      {counts.needs_work > 0 ? (
+        <Pill tone="needs_work">{counts.needs_work} fejlesztendő</Pill>
+      ) : null}
     </>
   );
 }
 
-type ScalePoint = { key: string; label: string; value: number };
+type ScalePoint = { label: string; value: number };
+
+/** Another colleague's point on the scale. */
+type OtherPoint = ScalePoint & { dispatcherId: string };
 
 /** A mark on the team scale, `left`% along it. Its label opens towards the middle, so it never
  * sticks out of the card. */
@@ -91,7 +87,7 @@ function TeamScale({
 }: {
   own: ScalePoint;
   team: ScalePoint;
-  others: ScalePoint[];
+  others: OtherPoint[];
   verdict: Verdict;
 }) {
   const values = [own, team, ...others].map((point) => point.value);
@@ -103,7 +99,7 @@ function TeamScale({
     <div aria-hidden="true" className="relative mx-2 h-5">
       <span className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-onyx-100" />
       {others.map((point) => (
-        <Mark key={point.key} label={point.label} left={position(point.value)}>
+        <Mark key={point.dispatcherId} label={point.label} left={position(point.value)}>
           <span className="h-3 w-0.5 rounded-full bg-onyx-300 group-hover/mark:bg-onyx-600" />
         </Mark>
       ))}
@@ -130,7 +126,7 @@ function MetricRow({
   name: string;
   metric: DispatcherMetric;
   team: MetricValue;
-  others: ScalePoint[];
+  others: OtherPoint[];
 }) {
   return (
     <div className="flex flex-col gap-2 py-3.5">
@@ -149,12 +145,10 @@ function MetricRow({
             </p>
             <TeamScale
               own={{
-                key: "own",
                 label: `${name}: ${formatMetric(id, metric.value)}`,
                 value: metric.value,
               }}
               team={{
-                key: "team",
                 label: `Csapat: ${formatMetric(id, team.value)}`,
                 value: team.value,
               }}
@@ -170,7 +164,7 @@ function MetricRow({
           <p className="flex items-center justify-between gap-3">
             <span className="text-2xl/none font-semibold text-text-helper">–</span>
             <span className="text-xs text-text-helper">
-              Kevés adat
+              {insufficientDataLabel}
               {metric.sampleSize > 0 ? `, ${sampleText(id, metric.sampleSize)}` : null}
             </span>
           </p>
@@ -193,12 +187,12 @@ function DispatcherCard({
 }) {
   const { dispatcher, metrics, openShipmentCount } = review;
   const othersOn = (id: ReviewMetricId) =>
-    everyone.flatMap((other): ScalePoint[] => {
+    everyone.flatMap((other): OtherPoint[] => {
       const metric = other.metrics[id];
       return other !== review && metric.kind === "measured"
         ? [
             {
-              key: other.dispatcher.id,
+              dispatcherId: other.dispatcher.id,
               label: `${other.dispatcher.name}: ${formatMetric(id, metric.value)}`,
               value: metric.value,
             },

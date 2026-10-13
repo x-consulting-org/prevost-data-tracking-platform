@@ -1,9 +1,11 @@
 import { Avatar } from "@/components/avatar";
 import { verdictStyle } from "@/components/dispatchers/review-format";
 import {
+  insufficientDataLabel,
   reviewMetricIds,
   reviewMetricText,
   verdictLabel,
+  verdicts,
   type DispatcherMetric,
   type PerformanceReview,
 } from "@/lib/performance/review";
@@ -16,7 +18,7 @@ function sameOutcome(a: DispatcherMetric, b: DispatcherMetric): boolean {
 }
 
 function outcomeLabel(metric: DispatcherMetric): string {
-  return metric.kind === "measured" ? verdictLabel[metric.verdict] : "Kevés adat";
+  return metric.kind === "measured" ? verdictLabel[metric.verdict] : insufficientDataLabel;
 }
 
 /** One dot per metric; an empty ring when there is too little data. */
@@ -99,7 +101,7 @@ export function PreviewLegend() {
         .
       </p>
       <div className="flex flex-wrap gap-x-3 gap-y-1.5">
-        {(["strength", "on_par", "needs_work"] as const).map((verdict) => (
+        {verdicts.map((verdict) => (
           <span key={verdict} className="inline-flex items-center gap-1.5">
             <span
               aria-hidden="true"
@@ -110,7 +112,7 @@ export function PreviewLegend() {
         ))}
         <span className="inline-flex items-center gap-1.5">
           <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-onyx-300" />
-          Kevés adat
+          {insufficientDataLabel}
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span

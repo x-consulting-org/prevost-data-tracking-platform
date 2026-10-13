@@ -12,6 +12,7 @@ import { previewPerformanceReview } from "@/actions/performance";
 import { PreviewLegend, ReviewPreview } from "@/components/dispatchers/review-preview";
 import { formatDateTime, formatShare } from "@/lib/format";
 import {
+  insufficientDataLabel,
   reviewMetricText,
   summarizeReview,
   type ReviewMetricId,
@@ -202,7 +203,7 @@ function MetricDefinition({ id, children }: { id: ReviewMetricId; children?: Rea
   );
 }
 
-const figure = (value: number | string, noun: string | null = null) => ({
+const figure = (value: number | string, noun: string | null) => ({
   value: String(value),
   noun,
 });
@@ -232,7 +233,7 @@ const impacts = {
     label: "Többször módosított",
     figures: (s) => [
       s.repeatedChangeShare === null
-        ? figure("kevés adat")
+        ? figure(insufficientDataLabel, null)
         : figure(formatShare(s.repeatedChangeShare), "a fuvarokból"),
     ],
   },
@@ -279,8 +280,8 @@ export function MetricSettingsForm({
   );
 
   const mutation = useMutation({
-    mutationFn: (values: MetricSettings) =>
-      saveMetricSettings({ settings: values, expectedUpdatedAt: updatedAt }),
+    mutationFn: (next: MetricSettings) =>
+      saveMetricSettings({ settings: next, expectedUpdatedAt: updatedAt }),
     onSuccess: async (result) => {
       if (result.status === "conflict") return;
       // The alerts on the Fuvarok screens and the review were computed with the old thresholds.
@@ -297,21 +298,21 @@ export function MetricSettingsForm({
   // Compared with the stored values, so typing a number back counts as no change.
   const changed = (name: keyof MetricSettings) => values[name] !== settings[name];
   const changedCount = metricSettingsSchema.keyof().options.filter(changed).length;
-  const isDirty = changedCount > 0;
-  const save = form.handleSubmit((values) => mutation.mutate(values));
+  const hasChanges = changedCount > 0;
+  const save = form.handleSubmit((submitted) => mutation.mutate(submitted));
 
   // Leaving with unsaved numbers asks first.
   useEffect(() => {
-    if (!isDirty) return;
+    if (!hasChanges) return;
     const warn = (event: BeforeUnloadEvent) => event.preventDefault();
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [isDirty]);
+  }, [hasChanges]);
 
   function saveOnShortcut(event: KeyboardEvent<HTMLFormElement>) {
     if (event.key === "s" && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
-      if (isDirty && !mutation.isPending) void save();
+      if (hasChanges && !mutation.isPending) void save();
     }
   }
 
@@ -479,7 +480,7 @@ export function MetricSettingsForm({
           />
         ) : null}
 
-        {isDirty ? (
+        {hasChanges ? (
           <div className="sticky bottom-4 z-10 flex animate-rise items-center justify-between gap-3 rounded-xl bg-onyx-900 py-2 pr-2 pl-4 text-white shadow-[0_12px_32px_rgb(19_18_16/0.28)]">
             <p className="min-w-0 text-sm font-medium">{changedCount} módosítás nincs mentve</p>
             <div className="flex gap-2">

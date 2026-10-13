@@ -10,8 +10,8 @@ import {
 } from "@/lib/performance/review";
 import type { MetricSettings } from "@/lib/performance/settings";
 import { prisma } from "@/lib/prisma";
-import { milestoneEventTypes, milestonesOf } from "@/lib/shipments/milestones";
-import { findDispatchers, type DispatcherSummary } from "@/server/shipments";
+import { milestonesOf } from "@/lib/shipments/milestones";
+import { findDispatchers, milestoneEventsSelect, type DispatcherSummary } from "@/server/shipments";
 
 const changeEventTypes = [ShipmentEventType.SCHEDULE_CHANGED, ShipmentEventType.DETAILS_CHANGED];
 
@@ -24,11 +24,7 @@ const reviewShipmentSelect = {
   deliveryAt: true,
   tportTripId: true,
   vehicleId: true,
-  events: {
-    where: { type: { in: [...milestoneEventTypes] } },
-    select: { type: true, occurredAt: true },
-    orderBy: [{ occurredAt: "asc" }, { id: "asc" }],
-  },
+  events: milestoneEventsSelect,
   _count: { select: { events: { where: { type: { in: changeEventTypes } } } } },
 } satisfies Prisma.ShipmentSelect;
 

@@ -3,6 +3,7 @@ import { Avatar } from "@/components/avatar";
 import { MetricInfo } from "@/components/dispatchers/metric-info";
 import { formatMetric, sampleText, verdictStyle } from "@/components/dispatchers/review-format";
 import {
+  insufficientDataLabel,
   reviewMetricIds,
   reviewMetricText,
   verdictLabel,
@@ -46,7 +47,9 @@ function MetricPanel({ id, team, rows }: { id: ReviewMetricId; team: MetricValue
           <MetricInfo id={id} />
         </h2>
         <p className="text-sm text-text-secondary tabular-nums">
-          {team.kind === "measured" ? `Csapat: ${formatMetric(id, team.value)}` : "Kevés adat"}
+          {team.kind === "measured"
+            ? `Csapat: ${formatMetric(id, team.value)}`
+            : insufficientDataLabel}
         </p>
       </header>
 
@@ -89,7 +92,7 @@ function MetricPanel({ id, team, rows }: { id: ReviewMetricId; team: MetricValue
                 </>
               ) : (
                 <span className="col-start-2 row-start-1 text-xs text-text-helper md:col-span-2">
-                  Kevés adat
+                  {insufficientDataLabel}
                   {metric.sampleSize > 0 ? `, ${sampleText(id, metric.sampleSize)}` : null}
                 </span>
               )}
