@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { getDispatcherBoard } from "@/actions/shipments";
-import { DispatcherBoard } from "@/components/dispatchers/dispatcher-board";
-import { DispatcherBoardSkeleton } from "@/components/dispatchers/dispatcher-board-skeleton";
+import { getPerformanceReview } from "@/actions/performance";
+import { PerformanceReview } from "@/components/dispatchers/performance-review";
+import { PerformanceReviewSkeleton } from "@/components/dispatchers/performance-review-skeleton";
+import { reviewWindowDays } from "@/lib/performance/review";
 import { dispatchersSearchParamsSchema } from "@/lib/shipments/schemas";
 
 export const metadata: Metadata = {
@@ -16,30 +17,30 @@ export default function DispatchersPage({ searchParams }: PageProps<"/dispatcher
       <header className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight">Kollégák</h1>
         <p className="text-sm text-text-secondary">
-          Ki mivel foglalkozik, és kinél van figyelmet igénylő fuvar.
+          Az elmúlt {reviewWindowDays} nap működése kollégánként, a csapathoz mérve.
         </p>
       </header>
-      <Suspense fallback={<DispatcherBoardSkeleton />}>
-        <Dispatchers searchParams={searchParams} />
+      <Suspense fallback={<PerformanceReviewSkeleton />}>
+        <Review searchParams={searchParams} />
       </Suspense>
     </>
   );
 }
 
-async function Dispatchers({ searchParams }: Pick<PageProps<"/dispatchers">, "searchParams">) {
+async function Review({ searchParams }: Pick<PageProps<"/dispatchers">, "searchParams">) {
   const parsed = dispatchersSearchParamsSchema.safeParse(await searchParams);
   if (!parsed.success) {
     notFound();
   }
 
-  const board = await getDispatcherBoard();
+  const review = await getPerformanceReview();
   const focusedDispatcherId = parsed.data.dispatcher;
   if (
     focusedDispatcherId !== undefined &&
-    !board.columns.some((column) => column.dispatcher.id === focusedDispatcherId)
+    !review.dispatchers.some((row) => row.dispatcher.id === focusedDispatcherId)
   ) {
     notFound();
   }
 
-  return <DispatcherBoard board={board} focusedDispatcherId={focusedDispatcherId} />;
+  return <PerformanceReview review={review} focusedDispatcherId={focusedDispatcherId} />;
 }

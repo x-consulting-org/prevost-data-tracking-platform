@@ -14,13 +14,51 @@ import { hourMs } from "../src/lib/time";
 
 const demoUser = { email: "demo@prevost.example", name: "Demo Vezető" };
 
-const dispatchers = [
-  { name: "Kiss Béla", mailbox: "kiss.bela@prevost.example" },
-  { name: "Tóth Nóra", mailbox: "toth.nora@prevost.example" },
-  { name: "Szabó Gergely", mailbox: "szabo.gergely@prevost.example" },
-  { name: "Varga Eszter", mailbox: "varga.eszter@prevost.example" },
-  { name: "Horváth Ádám", mailbox: "horvath.adam@prevost.example" },
+/** Hours as [min, max]; every value is drawn uniformly between them. */
+type Range = [number, number];
+
+/**
+ * How each colleague works, so the review has something to tell apart: reply time, time to
+ * a T-Port trip, how long their unloaded trucks wait, and how often a shipment gets changed.
+ */
+type WorkProfile = { response: Range; decision: Range; idle: Range; changeChance: number };
+
+const dispatchers: { name: string; mailbox: string; profile: WorkProfile }[] = [
+  {
+    name: "Kiss Béla",
+    mailbox: "kiss.bela@prevost.example",
+    profile: { response: [1.5, 4], decision: [6, 14], idle: [2, 8], changeChance: 0.15 },
+  },
+  {
+    name: "Tóth Nóra",
+    mailbox: "toth.nora@prevost.example",
+    profile: { response: [0.15, 0.6], decision: [4, 10], idle: [6, 18], changeChance: 0.45 },
+  },
+  {
+    name: "Szabó Gergely",
+    mailbox: "szabo.gergely@prevost.example",
+    profile: { response: [0.5, 1.5], decision: [14, 30], idle: [14, 40], changeChance: 0.3 },
+  },
+  {
+    name: "Varga Eszter",
+    mailbox: "varga.eszter@prevost.example",
+    profile: { response: [0.3, 1], decision: [5, 12], idle: [5, 14], changeChance: 0.1 },
+  },
+  {
+    name: "Horváth Ádám",
+    mailbox: "horvath.adam@prevost.example",
+    profile: { response: [1, 5], decision: [10, 24], idle: [8, 24], changeChance: 0.35 },
+  },
 ];
+
+/** Index of the colleague who lets requests go unanswered; most old unhandled ones are his. */
+const slowResponderIndex = 4;
+
+/** Trucks per colleague in the history, and how far back the history reaches. */
+const historyVehiclesPerDispatcher = 2;
+const historyDays = 32;
+/** History ends before the boards' completed lane starts, so the boards look as before. */
+const historyEndsDaysAgo = 7.5;
 
 const customers = [
   "Dunamenti Gépgyártó Kft.",
@@ -63,6 +101,13 @@ const cargo = [
   "Acélszerkezet, túlméretes",
   "Palackozott ital, 26 raklap",
   "Síküveg állványon",
+];
+
+const detailChanges = [
+  "Rakomány módosult: +4 raklap",
+  "Lerakási cím módosult",
+  "Rakodási igény módosult: emelőhátfal",
+  "Kapcsolattartó módosult",
 ];
 
 const specialRequirements = [
@@ -140,165 +185,347 @@ async function seedDemoUser() {
   }
 }
 
-async function seedOperations(now: Date) {
+type PlannedShipment = {
+  status: ShipmentStatus;
+  statusChangedAt: Date;
+  requestedAt: Date;
+  dispatcherIndex: number;
+  tportTripId: string | null;
+  vehiclePlate: string | null;
+  route: (typeof routes)[number];
+  pickupAt: Date | null;
+  deliveryAt: Date | null;
+  events: PlannedEvent[];
+};
+
+function planOperations(now: Date): PlannedShipment[] {
   const random = createRandom(2026);
   const at = (hoursFromNow: number) => new Date(now.getTime() + hoursFromNow * hourMs);
+  const after = (date: Date, [min, max]: Range) =>
+    new Date(date.getTime() + random.between(min, max) * hourMs);
+  const earliest = (...dates: Date[]) => new Date(Math.min(...dates.map((d) => d.getTime())));
+  const profileOf = (dispatcherIndex: number) => dispatchers[dispatcherIndex].profile;
+  const anyDispatcher = () => Math.floor(random.between(0, dispatchers.length));
+
+  let tripSequence = 0;
+  const nextTripId = () => {
+    tripSequence += 1;
+    return `TP-26-${String(41000 + tripSequence * 37).slice(-5)}`;
+  };
+  let plateSequence = 0;
+  const nextPlate = () => {
+    plateSequence += 1;
+    return `PRV-${String(400 + plateSequence * 7).padStart(3, "0")}`;
+  };
+
+  /** The reply that moves a request to organizing; the status change is the same moment. */
+  const responseEvents = (respondedAt: Date): PlannedEvent[] => [
+    {
+      type: ShipmentEventType.RESPONSE_SENT,
+      source: DataSource.EMAIL,
+      summary: "Válasz a megbízónak",
+      occurredAt: respondedAt,
+    },
+    {
+      type: ShipmentEventType.STATUS_CHANGED,
+      source: DataSource.EMAIL,
+      summary: `Státusz: ${shipmentStatusLabel.ORGANIZING}`,
+      occurredAt: respondedAt,
+    },
+  ];
+
+  const tripEvent = (tripId: string, linkedAt: Date): PlannedEvent => ({
+    type: ShipmentEventType.TRIP_LINKED,
+    source: DataSource.TPORT,
+    summary: `T-Port járat: ${tripId}`,
+    occurredAt: linkedAt,
+  });
+
+  /** Up to three schedule or detail changes between `from` and `until`, by the profile. */
+  const changeEvents = (profile: WorkProfile, from: Date, until: Date, pickupAt: Date) => {
+    const events: PlannedEvent[] = [];
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      if (!random.chance(profile.changeChance)) continue;
+      const occurredAt = new Date(
+        from.getTime() + random.between(0.1, 1) * (until.getTime() - from.getTime()),
+      );
+      events.push(
+        random.chance(0.6)
+          ? {
+              type: ShipmentEventType.SCHEDULE_CHANGED,
+              source: DataSource.EMAIL,
+              summary: `Felrakás időpontja módosult: ${formatDateTime(pickupAt)}`,
+              occurredAt,
+            }
+          : {
+              type: ShipmentEventType.DETAILS_CHANGED,
+              source: DataSource.EMAIL,
+              summary: random.pick(detailChanges),
+              occurredAt,
+            },
+      );
+    }
+    return events;
+  };
+
+  const planned: PlannedShipment[] = [];
+
+  // History: each colleague's trucks run trip after trip; the gap after each unload follows
+  // the colleague's profile. All of it is completed before the boards' window.
+  for (let dispatcherIndex = 0; dispatcherIndex < dispatchers.length; dispatcherIndex += 1) {
+    const profile = profileOf(dispatcherIndex);
+    for (let truck = 0; truck < historyVehiclesPerDispatcher; truck += 1) {
+      const plate = nextPlate();
+      let unloadedAt = at(-historyDays * 24 + random.between(0, 24));
+      for (;;) {
+        const pickupAt = after(unloadedAt, profile.idle);
+        const deliveryAt = after(pickupAt, [20, 50]);
+        if (deliveryAt > at(-historyEndsDaysAgo * 24)) break;
+
+        const requestedAt = new Date(pickupAt.getTime() - random.between(18, 60) * hourMs);
+        const respondedAt = after(requestedAt, profile.response);
+        const tripId = nextTripId();
+        const linkedAt = earliest(
+          after(requestedAt, profile.decision),
+          new Date(pickupAt.getTime() - 2 * hourMs),
+        );
+        planned.push({
+          status: ShipmentStatus.COMPLETED,
+          statusChangedAt: deliveryAt,
+          requestedAt,
+          dispatcherIndex,
+          tportTripId: tripId,
+          vehiclePlate: plate,
+          route: random.pick(routes),
+          pickupAt,
+          deliveryAt,
+          events: [
+            ...responseEvents(respondedAt),
+            tripEvent(tripId, linkedAt),
+            ...changeEvents(profile, requestedAt, pickupAt, pickupAt),
+            {
+              type: ShipmentEventType.STATUS_CHANGED,
+              source: DataSource.TPORT,
+              summary: "Felrakás megtörtént",
+              occurredAt: pickupAt,
+            },
+            {
+              type: ShipmentEventType.STATUS_CHANGED,
+              source: DataSource.TPORT,
+              summary: "Lerakás megtörtént",
+              occurredAt: deliveryAt,
+            },
+          ],
+        });
+        unloadedAt = deliveryAt;
+      }
+    }
+  }
+
+  // The current state the boards show.
+  for (const { status, count } of statusPlan) {
+    for (let index = 0; index < count; index += 1) {
+      const dispatcherIndex =
+        status === ShipmentStatus.UNHANDLED && index >= 3 && index % 2 === 1
+          ? slowResponderIndex
+          : anyDispatcher();
+      const profile = profileOf(dispatcherIndex);
+      const tripId = nextTripId();
+
+      let requestedAt: Date;
+      let pickupAt: Date | null;
+      let deliveryAt: Date | null;
+      let tportTripId: string | null = null;
+      let statusChangedAt: Date;
+      const events: PlannedEvent[] = [];
+
+      switch (status) {
+        case ShipmentStatus.UNHANDLED:
+          // The first three are fresh, the rest have waited long enough to alert.
+          requestedAt = at(index < 3 ? -random.between(0.2, 1.5) : -random.between(2.5, 30));
+          pickupAt = random.chance(0.6) ? at(random.between(30, 120)) : null;
+          deliveryAt = pickupAt && new Date(pickupAt.getTime() + random.between(20, 60) * hourMs);
+          statusChangedAt = requestedAt;
+          break;
+        case ShipmentStatus.ORGANIZING:
+          requestedAt = at(-random.between(20, 96));
+          // 0–2: pickup within a day and no trip yet; 3: no pickup time stated.
+          pickupAt =
+            index === 3 ? null : at(index < 3 ? random.between(3, 22) : random.between(26, 140));
+          deliveryAt = pickupAt && new Date(pickupAt.getTime() + random.between(20, 60) * hourMs);
+          statusChangedAt = earliest(after(requestedAt, profile.response), at(-0.5));
+          events.push(...responseEvents(statusChangedAt));
+          if (index > 3 && random.chance(0.5)) {
+            tportTripId = tripId;
+            events.push(
+              tripEvent(tripId, earliest(after(requestedAt, profile.decision), at(-0.2))),
+            );
+          }
+          break;
+        case ShipmentStatus.IN_TRANSIT:
+          pickupAt = at(-random.between(4, 60));
+          requestedAt = new Date(pickupAt.getTime() - random.between(36, 120) * hourMs);
+          // 0–2: delivery deadline already passed.
+          deliveryAt = at(index < 3 ? -random.between(1, 10) : random.between(4, 50));
+          tportTripId = tripId;
+          statusChangedAt = pickupAt;
+          events.push(
+            ...responseEvents(after(requestedAt, profile.response)),
+            tripEvent(
+              tripId,
+              earliest(after(requestedAt, profile.decision), new Date(pickupAt.getTime() - hourMs)),
+            ),
+            {
+              type: ShipmentEventType.STATUS_CHANGED,
+              source: DataSource.TPORT,
+              summary: "Felrakás megtörtént",
+              occurredAt: pickupAt,
+            },
+          );
+          break;
+        case ShipmentStatus.COMPLETED:
+          // The last three finished more than a week ago and drop off the boards.
+          deliveryAt = at(index < 9 ? -random.between(4, 150) : -random.between(200, 300));
+          pickupAt = new Date(deliveryAt.getTime() - random.between(20, 60) * hourMs);
+          requestedAt = new Date(pickupAt.getTime() - random.between(36, 120) * hourMs);
+          tportTripId = tripId;
+          statusChangedAt = deliveryAt;
+          events.push(
+            ...responseEvents(after(requestedAt, profile.response)),
+            tripEvent(
+              tripId,
+              earliest(after(requestedAt, profile.decision), new Date(pickupAt.getTime() - hourMs)),
+            ),
+            {
+              type: ShipmentEventType.STATUS_CHANGED,
+              source: DataSource.TPORT,
+              summary: "Lerakás megtörtént",
+              occurredAt: deliveryAt,
+            },
+          );
+          break;
+        case ShipmentStatus.CANCELLED:
+          requestedAt = at(-random.between(30, 120));
+          pickupAt = null;
+          deliveryAt = null;
+          statusChangedAt = new Date(requestedAt.getTime() + random.between(2, 20) * hourMs);
+          events.push(...responseEvents(after(requestedAt, [0.2, 1.5])), {
+            type: ShipmentEventType.STATUS_CHANGED,
+            source: DataSource.EMAIL,
+            summary: "A megbízó lemondta a fuvart",
+            occurredAt: statusChangedAt,
+          });
+          break;
+      }
+
+      if (pickupAt !== null && status !== ShipmentStatus.UNHANDLED) {
+        // Changes happen while the shipment is being organised, never later than now.
+        events.push(
+          ...changeEvents(profile, requestedAt, earliest(pickupAt, statusChangedAt, now), pickupAt),
+        );
+      }
+
+      planned.push({
+        status,
+        statusChangedAt,
+        requestedAt,
+        dispatcherIndex,
+        tportTripId,
+        // Each current trip has its own truck; only the history chains trucks.
+        vehiclePlate: tportTripId === null ? null : nextPlate(),
+        route: random.pick(routes),
+        pickupAt,
+        deliveryAt,
+        events,
+      });
+    }
+  }
+
+  return planned;
+}
+
+async function seedOperations(now: Date) {
+  const random = createRandom(2027);
+  const planned = planOperations(now).toSorted(
+    (a, b) => a.requestedAt.getTime() - b.requestedAt.getTime(),
+  );
 
   await prisma.$transaction(
     async (tx) => {
       await tx.shipment.deleteMany();
+      await tx.vehicle.deleteMany();
       await tx.customer.deleteMany();
       await tx.dispatcher.deleteMany();
       await tx.sourceSync.deleteMany();
 
       const dispatcherRows = await tx.dispatcher.createManyAndReturn({
-        data: dispatchers,
-        select: { id: true },
+        data: dispatchers.map(({ name, mailbox }) => ({ name, mailbox })),
+        select: { id: true, mailbox: true },
       });
       const customerRows = await tx.customer.createManyAndReturn({
         data: customers.map((name) => ({ name })),
         select: { id: true, name: true },
       });
+      const vehicleRows = await tx.vehicle.createManyAndReturn({
+        data: [
+          ...new Set(planned.flatMap(({ vehiclePlate }) => (vehiclePlate ? [vehiclePlate] : []))),
+        ].map((plate) => ({ plate })),
+        select: { id: true, plate: true },
+      });
+      const dispatcherId = (index: number) => {
+        const row = dispatcherRows.find((d) => d.mailbox === dispatchers[index].mailbox);
+        if (row === undefined) throw new Error(`Dispatcher ${index} was not created`);
+        return row.id;
+      };
+      const vehicleId = (plate: string | null) => {
+        if (plate === null) return null;
+        const row = vehicleRows.find((vehicle) => vehicle.plate === plate);
+        if (row === undefined) throw new Error(`Vehicle ${plate} was not created`);
+        return row.id;
+      };
 
-      let sequence = 101;
-      for (const { status, count } of statusPlan) {
-        for (let index = 0; index < count; index += 1) {
-          const reference = `PRV-2026-${String(sequence).padStart(4, "0")}`;
-          sequence += 1;
+      // References follow the request order, as a mailbox would number them.
+      for (const [index, shipment] of planned.entries()) {
+        const [originCity, originCountry, destinationCity, destinationCountry] = shipment.route;
+        const customer = random.pick(customerRows);
+        const route = `${originCity} ${originCountry} → ${destinationCity} ${destinationCountry}`;
 
-          const [originCity, originCountry, destinationCity, destinationCountry] =
-            random.pick(routes);
-          const customer = random.pick(customerRows);
-          const route = `${originCity} ${originCountry} → ${destinationCity} ${destinationCountry}`;
-          const tripId = `TP-26-${String(40000 + sequence * 37).slice(-5)}`;
-
-          let requestedAt: Date;
-          let pickupAt: Date | null;
-          let deliveryAt: Date | null;
-          let tportTripId: string | null = null;
-          let statusChangedAt: Date;
-          const events: PlannedEvent[] = [];
-
-          switch (status) {
-            case ShipmentStatus.UNHANDLED:
-              // The first three are fresh, the rest have waited long enough to alert.
-              requestedAt = at(index < 3 ? -random.between(0.2, 1.5) : -random.between(2.5, 30));
-              pickupAt = random.chance(0.6) ? at(random.between(30, 120)) : null;
-              deliveryAt =
-                pickupAt && new Date(pickupAt.getTime() + random.between(20, 60) * hourMs);
-              statusChangedAt = requestedAt;
-              break;
-            case ShipmentStatus.ORGANIZING:
-              requestedAt = at(-random.between(20, 96));
-              // 0–2: pickup within a day and no trip yet; 3: no pickup time stated.
-              pickupAt =
-                index === 3
-                  ? null
-                  : at(index < 3 ? random.between(3, 22) : random.between(26, 140));
-              deliveryAt =
-                pickupAt && new Date(pickupAt.getTime() + random.between(20, 60) * hourMs);
-              tportTripId = index > 3 && random.chance(0.5) ? tripId : null;
-              statusChangedAt = new Date(requestedAt.getTime() + random.between(0.5, 4) * hourMs);
-              events.push({
-                type: ShipmentEventType.STATUS_CHANGED,
-                source: DataSource.EMAIL,
-                summary: `Státusz: ${shipmentStatusLabel.ORGANIZING}`,
-                occurredAt: statusChangedAt,
-              });
-              break;
-            case ShipmentStatus.IN_TRANSIT:
-              pickupAt = at(-random.between(4, 60));
-              requestedAt = new Date(pickupAt.getTime() - random.between(36, 120) * hourMs);
-              // 0–2: delivery deadline already passed.
-              deliveryAt = at(index < 3 ? -random.between(1, 10) : random.between(4, 50));
-              tportTripId = tripId;
-              statusChangedAt = pickupAt;
-              events.push({
-                type: ShipmentEventType.STATUS_CHANGED,
-                source: DataSource.TPORT,
-                summary: "Felrakás megtörtént",
-                occurredAt: pickupAt,
-              });
-              break;
-            case ShipmentStatus.COMPLETED:
-              // The last three finished more than a week ago and drop off the boards.
-              deliveryAt = at(index < 9 ? -random.between(4, 150) : -random.between(200, 300));
-              pickupAt = new Date(deliveryAt.getTime() - random.between(20, 60) * hourMs);
-              requestedAt = new Date(pickupAt.getTime() - random.between(36, 120) * hourMs);
-              tportTripId = tripId;
-              statusChangedAt = deliveryAt;
-              events.push({
-                type: ShipmentEventType.STATUS_CHANGED,
-                source: DataSource.TPORT,
-                summary: "Lerakás megtörtént",
-                occurredAt: deliveryAt,
-              });
-              break;
-            case ShipmentStatus.CANCELLED:
-              requestedAt = at(-random.between(30, 120));
-              pickupAt = null;
-              deliveryAt = null;
-              statusChangedAt = new Date(requestedAt.getTime() + random.between(2, 20) * hourMs);
-              events.push({
-                type: ShipmentEventType.STATUS_CHANGED,
-                source: DataSource.EMAIL,
-                summary: "A megbízó lemondta a fuvart",
-                occurredAt: statusChangedAt,
-              });
-              break;
-          }
-
-          events.push({
-            type: ShipmentEventType.REQUEST_RECEIVED,
-            source: DataSource.EMAIL,
-            summary: `Igény érkezett: ${customer.name}, ${route}`,
-            occurredAt: requestedAt,
-          });
-          if (tportTripId !== null) {
-            events.push({
-              type: ShipmentEventType.TRIP_LINKED,
-              source: DataSource.TPORT,
-              summary: `T-Port járat: ${tportTripId}`,
-              occurredAt: new Date(requestedAt.getTime() + random.between(4, 18) * hourMs),
-            });
-          }
-          if (pickupAt !== null && random.chance(0.35)) {
-            events.push({
-              type: ShipmentEventType.SCHEDULE_CHANGED,
-              source: DataSource.EMAIL,
-              summary: `Felrakás időpontja módosult: ${formatDateTime(pickupAt)}`,
-              // Within three hours of the request, and never later than now.
-              occurredAt: new Date(
-                requestedAt.getTime() +
-                  random.between(0.1, 1) *
-                    Math.min(3 * hourMs, now.getTime() - requestedAt.getTime()),
-              ),
-            });
-          }
-
-          await tx.shipment.create({
-            data: {
-              reference,
-              status,
-              statusChangedAt,
-              requestedAt,
-              dispatcherId: random.pick(dispatcherRows).id,
-              customerId: customer.id,
-              tportTripId,
-              originCity,
-              originCountry,
-              destinationCity,
-              destinationCountry,
-              pickupAt,
-              deliveryAt,
-              cargoDescription: random.chance(0.85) ? random.pick(cargo) : null,
-              specialRequirements: random.chance(0.3) ? random.pick(specialRequirements) : null,
-              events: { createMany: { data: events } },
+        await tx.shipment.create({
+          data: {
+            reference: `PRV-2026-${String(index + 1).padStart(4, "0")}`,
+            status: shipment.status,
+            statusChangedAt: shipment.statusChangedAt,
+            requestedAt: shipment.requestedAt,
+            dispatcherId: dispatcherId(shipment.dispatcherIndex),
+            customerId: customer.id,
+            tportTripId: shipment.tportTripId,
+            vehicleId: vehicleId(shipment.vehiclePlate),
+            originCity,
+            originCountry,
+            destinationCity,
+            destinationCountry,
+            pickupAt: shipment.pickupAt,
+            deliveryAt: shipment.deliveryAt,
+            cargoDescription: random.chance(0.85) ? random.pick(cargo) : null,
+            specialRequirements: random.chance(0.3) ? random.pick(specialRequirements) : null,
+            events: {
+              createMany: {
+                data: [
+                  {
+                    type: ShipmentEventType.REQUEST_RECEIVED,
+                    source: DataSource.EMAIL,
+                    summary: `Igény érkezett: ${customer.name}, ${route}`,
+                    occurredAt: shipment.requestedAt,
+                  },
+                  ...shipment.events,
+                ],
+              },
             },
-          });
-        }
+          },
+        });
       }
 
+      const at = (hoursFromNow: number) => new Date(now.getTime() + hoursFromNow * hourMs);
       await tx.sourceSync.createMany({
         data: [
           { source: DataSource.EMAIL, lastSyncedAt: at(-0.12) },
@@ -306,8 +533,8 @@ async function seedOperations(now: Date) {
         ],
       });
     },
-    // About sixty sequential writes; Prisma's 5 s default is tight against a remote database.
-    { timeout: 30_000 },
+    // About two hundred sequential writes; Prisma's 5 s default is far too tight for that.
+    { timeout: 120_000 },
   );
 }
 

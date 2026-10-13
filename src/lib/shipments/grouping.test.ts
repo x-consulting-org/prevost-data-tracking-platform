@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { ShipmentStatus } from "@/generated/prisma/enums";
 import type { ShipmentAlert } from "@/lib/shipments/alerts";
-import { groupByDispatcher, groupByStatus } from "@/lib/shipments/grouping";
+import { groupByStatus } from "@/lib/shipments/grouping";
 import { boardStatuses, boardStatusesFor } from "@/lib/shipments/status";
 
 const alert: ShipmentAlert = { kind: "missing_schedule" };
 
-function shipment(id: string, status: ShipmentStatus, dispatcherId = "d1", alerts = [alert]) {
-  return { id, status, dispatcherId, alerts };
+function shipment(id: string, status: ShipmentStatus, alerts = [alert]) {
+  return { id, status, alerts };
 }
 
 describe("groupByStatus", () => {
@@ -15,8 +15,8 @@ describe("groupByStatus", () => {
     const columns = groupByStatus(
       [
         shipment("a", ShipmentStatus.IN_TRANSIT),
-        shipment("b", ShipmentStatus.UNHANDLED, "d1", []),
-        shipment("c", ShipmentStatus.IN_TRANSIT, "d1", []),
+        shipment("b", ShipmentStatus.UNHANDLED, []),
+        shipment("c", ShipmentStatus.IN_TRANSIT, []),
       ],
       boardStatuses,
     );
@@ -42,24 +42,5 @@ describe("groupByStatus", () => {
     expect(
       groupByStatus(cancelled, boardStatusesFor({ includeCancelled: true })).at(-1),
     ).toMatchObject({ status: ShipmentStatus.CANCELLED, shipments: cancelled });
-  });
-});
-
-describe("groupByDispatcher", () => {
-  it("keeps a dispatcher without shipments as an empty column", () => {
-    const columns = groupByDispatcher(
-      [{ id: "d1" }, { id: "d2" }],
-      [
-        shipment("a", ShipmentStatus.ORGANIZING, "d1"),
-        shipment("b", ShipmentStatus.UNHANDLED, "d1", []),
-      ],
-    );
-
-    expect(
-      columns.map((column) => [column.dispatcher.id, column.shipmentCount, column.attentionCount]),
-    ).toEqual([
-      ["d1", 2, 1],
-      ["d2", 0, 0],
-    ]);
   });
 });

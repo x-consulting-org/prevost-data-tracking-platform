@@ -16,6 +16,14 @@ _Avoid_: Calling the trip a "fuvar"
 A Prévost colleague whose mailbox receives requests and who organises shipments. Not the same as an app user.
 _Avoid_: User, agent, planner
 
+**Vehicle** (UI: _kamion_):
+A truck as T-Port knows it, identified by its plate. The shipments on one vehicle follow each other; the time between an unload and the next pickup is how long the truck stood empty.
+_Avoid_: Truck in code, asset
+
+**Performance review** (UI: _értékelés_, the Kollégák screen):
+Each dispatcher's metrics over the last 30 days next to the team's, with a verdict per metric: strength, on par or needs work. Derived from shipments and their events, never stored.
+_Avoid_: Score, ranking, KPI
+
 **Customer** (UI: _megbízó_):
 The company that requested the shipment.
 _Avoid_: Client, partner, shipper

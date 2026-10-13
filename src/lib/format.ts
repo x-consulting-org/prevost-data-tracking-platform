@@ -57,3 +57,23 @@ export function formatRelative(date: Date, now: Date): string {
 
   return relativeTimeFormat.format(budapestDayNumber(date) - budapestDayNumber(now), "day");
 }
+
+const decimalFormat = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
+const percentFormat = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 0 });
+
+/** One decimal, Hungarian style: "1,4". */
+export function formatDecimal(value: number): string {
+  return decimalFormat.format(value);
+}
+
+/** "42 perc", "5,3 óra", "2,4 nap": the largest unit that keeps the number readable. */
+export function formatDuration(ms: number): string {
+  if (ms < hourMs) return `${Math.round(ms / minuteMs)} perc`;
+  if (ms < 2 * dayMs) return `${decimalFormat.format(ms / hourMs)} óra`;
+  return `${decimalFormat.format(ms / dayMs)} nap`;
+}
+
+/** A share between 0 and 1 as "18%". */
+export function formatShare(share: number): string {
+  return percentFormat.format(share);
+}

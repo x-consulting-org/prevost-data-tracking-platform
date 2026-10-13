@@ -5,12 +5,7 @@ import { ShipmentStatus, type DataSource } from "@/generated/prisma/enums";
 import { toPaginatedResult, toSkipTake, type PaginatedResult } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
 import { getShipmentAlerts, type ShipmentAlert } from "@/lib/shipments/alerts";
-import {
-  groupByDispatcher,
-  groupByStatus,
-  type DispatcherColumn,
-  type StatusColumn,
-} from "@/lib/shipments/grouping";
+import { groupByStatus, type StatusColumn } from "@/lib/shipments/grouping";
 import type {
   ShipmentFilter,
   ShipmentPageInput,
@@ -61,11 +56,6 @@ export type StatusBoard = {
   /** The `now` alerts were computed against; relative times in the UI use it too. */
   generatedAt: Date;
   columns: StatusColumn<ShipmentCard>[];
-};
-
-export type DispatcherBoard = {
-  generatedAt: Date;
-  columns: DispatcherColumn<DispatcherSummary, ShipmentCard>[];
 };
 
 export type SyncState =
@@ -134,25 +124,6 @@ export async function findStatusBoard(filter: ShipmentFilter, now: Date): Promis
     columns: groupByStatus(
       shipments.map((shipment) => withAlerts(shipment, now)),
       boardStatusesFor(filter),
-    ),
-  };
-}
-
-export async function findDispatcherBoard(now: Date): Promise<DispatcherBoard> {
-  const [dispatchers, shipments] = await Promise.all([
-    findDispatchers(),
-    prisma.shipment.findMany({
-      where: boardWhere({ pickupWithin24h: false, includeCancelled: false }, now),
-      select: shipmentCardSelect,
-      orderBy: boardOrderBy,
-    }),
-  ]);
-
-  return {
-    generatedAt: now,
-    columns: groupByDispatcher(
-      dispatchers,
-      shipments.map((shipment) => withAlerts(shipment, now)),
     ),
   };
 }

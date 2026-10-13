@@ -88,7 +88,7 @@ src/
   components/
     auth/              # Login form
     data-table/        # Carbon pagination, column fitting and resizing for TanStack Table
-    dispatchers/       # Kollégák board
+    dispatchers/       # Kollégák: performance review cards
     feedback/          # Error and not-found messages shared by the boundaries
     providers/         # QueryProvider
     shell/             # Dark sidebar / top bar: nav, live refresh, sync status, user menu
@@ -102,6 +102,7 @@ src/
     pagination.ts      # Zod list/pagination schemas + PaginatedResult
     prisma.ts
     query-keys.ts      # TanStack Query key factory
+    performance/       # Pure performance review: metrics, team comparison, verdicts
     shipments/         # Pure domain rules: statuses, alerts, grouping, progress, schemas, sources
   server/              # Server-only read models and identity (Prisma lives here)
   instrumentation.ts   # Checks the environment once at server start
