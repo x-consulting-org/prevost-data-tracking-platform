@@ -1,3 +1,4 @@
+import type { MetricSettings } from "@/lib/performance/settings";
 import type { ShipmentPageInput } from "@/lib/shipments/schemas";
 
 /**
@@ -11,5 +12,11 @@ export const queryKeys = {
     page: (input: ShipmentPageInput) => [...queryKeys.shipments.pages(), input] as const,
     details: () => [...queryKeys.shipments.all, "detail"] as const,
     detail: (id: string) => [...queryKeys.shipments.details(), id] as const,
+  },
+  performance: {
+    all: ["performance"] as const,
+    /** The review computed with `settings`, saved or not (the Mérőszámok preview). */
+    preview: (settings: MetricSettings) =>
+      [...queryKeys.performance.all, "preview", settings] as const,
   },
 } as const;

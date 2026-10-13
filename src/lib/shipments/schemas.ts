@@ -50,11 +50,33 @@ const defaultShipmentView: ShipmentView = "kanban";
 // Each screen's URL is parsed by its schema and built by its href function, side by side,
 // so the param names and defaults have one home (the round trip is tested).
 
-/** Search params of the Kollégák screen: the dispatcher to bring into view. */
-export const dispatchersSearchParamsSchema = z.object({ dispatcher: z.uuid().optional() });
+/** The review by colleague (a card each) or by metric (everyone ranked on one metric). */
+export const reviewViews = ["people", "metrics"] as const;
 
-export function dispatchersHref(dispatcherId: string): string {
-  return `/dispatchers?${new URLSearchParams({ dispatcher: dispatcherId }).toString()}`;
+export type ReviewView = (typeof reviewViews)[number];
+
+const defaultReviewView: ReviewView = "people";
+
+/** What the Kollégák screen shows: the view, and in it the dispatcher to bring into view. */
+export type DispatchersSearchParams = { view: ReviewView; dispatcherId: string | undefined };
+
+export const dispatchersSearchParamsSchema = z
+  .object({
+    view: z.enum(reviewViews).default(defaultReviewView),
+    dispatcher: z.uuid().optional(),
+  })
+  .transform(({ view, dispatcher }): DispatchersSearchParams => ({
+    view,
+    dispatcherId: dispatcher,
+  }));
+
+/** Defaults are left out, so the bare `/dispatchers` URL is the default screen. */
+export function dispatchersHref({ view, dispatcherId }: DispatchersSearchParams): string {
+  const params = new URLSearchParams();
+  if (view !== defaultReviewView) params.set("view", view);
+  if (dispatcherId !== undefined) params.set("dispatcher", dispatcherId);
+  const query = params.toString();
+  return query === "" ? "/dispatchers" : `/dispatchers?${query}`;
 }
 
 /** What the Fuvarok screen shows; its URL encodes exactly this. */

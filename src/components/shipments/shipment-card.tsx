@@ -199,7 +199,8 @@ type MetricLine = {
 /**
  * This shipment's share of the colleague's review (src/lib/performance/review.ts): how long the
  * first reply and the T-Port trip took, and how soon the unloaded truck got its next load. A
- * clock still running reads "még nincs" with the time so far; the board refreshes it.
+ * clock still running reads "még nincs" (an empty truck "üresen") with the time so far; the
+ * board refreshes it.
  */
 function metricLines(
   shipment: ShipmentCardData,
@@ -248,7 +249,7 @@ function metricLines(
     case "reloaded":
       lines.push({
         id: "idleAfterUnload",
-        text: `${formatDuration(since(turnaround.unloadedAt, turnaround.nextPickupAt))} múlva újra rakva`,
+        text: formatDuration(since(turnaround.unloadedAt, turnaround.nextPickupAt)),
         slow: false,
         running: false,
       });
@@ -256,7 +257,7 @@ function metricLines(
     case "waiting":
       lines.push({
         id: "idleAfterUnload",
-        text: `üresen áll, ${formatDuration(since(turnaround.unloadedAt, now))}`,
+        text: `üresen, ${formatDuration(since(turnaround.unloadedAt, now))}`,
         slow: false,
         running: true,
       });
@@ -278,7 +279,7 @@ function MetricLines({ lines }: { lines: MetricLine[] }) {
         <div key={line.id} className="contents">
           <dt className="text-text-secondary">{reviewMetricText[line.id].short}</dt>
           <dd
-            className={`flex items-center justify-end gap-1 text-right tabular-nums ${line.slow ? "font-medium text-attention-ink" : ""}`}
+            className={`flex items-center justify-end gap-1 text-right font-medium tabular-nums ${line.slow ? "text-attention-ink" : "text-text-primary"}`}
           >
             {line.slow && line.running ? <AttentionIcon /> : null}
             {line.text}
