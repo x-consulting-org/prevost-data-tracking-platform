@@ -1,130 +1,147 @@
+/* Carbon (carbon.scss) sits above Tailwind's preflight and below utilities. */
+@layer theme, base, carbon, components, utilities;
+
 @import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
-
+/* Tailwind is the layout utility layer; neutrals and fonts come from Carbon tokens. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --font-sans: var(--font-plex-sans);
+
+  --color-background: var(--cds-background);
+  --color-layer: var(--cds-layer);
+  --color-layer-sunken: var(--cds-layer-02);
+  --color-layer-hover: var(--cds-layer-hover);
+  --color-border-subtle: var(--cds-border-subtle);
+  --color-border-strong: var(--cds-border-strong);
+  --color-text-primary: var(--cds-text-primary);
+  --color-text-secondary: var(--cds-text-secondary);
+  --color-text-helper: var(--cds-text-helper);
+  --color-focus: var(--cds-focus);
+  --color-link-primary: var(--cds-link-primary);
+
+  /* Carbon's breakpoints (md 672, lg 1056, xlg 1312, max 1584); below md is Carbon's sm. */
+  --breakpoint-*: initial;
+  --breakpoint-md: 42rem;
+  --breakpoint-lg: 66rem;
+  --breakpoint-xl: 82rem;
+  --breakpoint-2xl: 99rem;
 }
 
-:root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+/* The Prévost palette (David, 2026-10-12). The only place colours are defined: Carbon's theme
+   (carbon.scss) and the tokens below refer to these. `static` keeps every step in the CSS, since
+   carbon.scss uses them where Tailwind does not see it. */
+@theme static {
+  --color-sunflower-gold-50: #fdf6e7;
+  --color-sunflower-gold-100: #fcedcf;
+  --color-sunflower-gold-200: #f9db9f;
+  --color-sunflower-gold-300: #f6c96f;
+  --color-sunflower-gold-400: #f3b73f;
+  --color-sunflower-gold-500: #f0a50f;
+  --color-sunflower-gold-600: #c0840c;
+  --color-sunflower-gold-700: #906309;
+  --color-sunflower-gold-800: #604206;
+  --color-sunflower-gold-900: #302103;
+  --color-sunflower-gold-950: #221702;
+
+  --color-forest-moss-50: #f6f9ec;
+  --color-forest-moss-100: #eef2d9;
+  --color-forest-moss-200: #dce6b3;
+  --color-forest-moss-300: #cbd98c;
+  --color-forest-moss-400: #b9cc66;
+  --color-forest-moss-500: #a8bf40;
+  --color-forest-moss-600: #869933;
+  --color-forest-moss-700: #657326;
+  --color-forest-moss-800: #434d19;
+  --color-forest-moss-900: #22260d;
+  --color-forest-moss-950: #181b09;
+
+  --color-muted-olive-50: #f5f6ef;
+  --color-muted-olive-100: #eaedde;
+  --color-muted-olive-200: #d6dbbd;
+  --color-muted-olive-300: #c1c99c;
+  --color-muted-olive-400: #adb77b;
+  --color-muted-olive-500: #98a45b;
+  --color-muted-olive-600: #7a8448;
+  --color-muted-olive-700: #5b6336;
+  --color-muted-olive-800: #3d4224;
+  --color-muted-olive-900: #1e2112;
+  --color-muted-olive-950: #15170d;
+
+  --color-onyx-50: #f3f3f1;
+  --color-onyx-100: #e8e6e3;
+  --color-onyx-200: #d1cec7;
+  --color-onyx-300: #b9b5ac;
+  --color-onyx-400: #a29c90;
+  --color-onyx-500: #8b8374;
+  --color-onyx-600: #6f695d;
+  --color-onyx-700: #534f46;
+  --color-onyx-800: #38352e;
+  --color-onyx-900: #1c1a17;
+  --color-onyx-950: #131210;
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
+/* What the palette means in the app. Each status has a solid (dots, bars), a tint (lane and
+   badge backgrounds) and an ink (text on the tint, 7:1+). */
+@theme {
+  /* The gold of the primary buttons; never as text on a light surface. */
+  --color-brand: var(--color-sunflower-gold-400);
 
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
+  --color-sidebar: var(--color-onyx-950);
+  --color-sidebar-raised: var(--color-onyx-900);
+  --color-sidebar-text: var(--color-onyx-300);
+
+  --color-status-unhandled: var(--color-onyx-400);
+  --color-status-unhandled-tint: var(--color-onyx-100);
+  --color-status-unhandled-ink: var(--color-onyx-700);
+  --color-status-organizing: var(--color-muted-olive-500);
+  --color-status-organizing-tint: var(--color-muted-olive-100);
+  --color-status-organizing-ink: var(--color-muted-olive-800);
+  --color-status-in-transit: var(--color-sunflower-gold-500);
+  --color-status-in-transit-tint: var(--color-sunflower-gold-100);
+  --color-status-in-transit-ink: var(--color-sunflower-gold-800);
+  --color-status-completed: var(--color-forest-moss-700);
+  --color-status-completed-tint: var(--color-forest-moss-200);
+  --color-status-completed-ink: var(--color-forest-moss-900);
+  --color-status-cancelled: var(--color-onyx-300);
+  --color-status-cancelled-tint: var(--color-onyx-50);
+  --color-status-cancelled-ink: var(--color-onyx-700);
+
+  /* Errors and alerts (David's reds). The tint and the on-dark variant are derived: the ink keeps
+     5.8:1 on the tint, and neither red reaches 4.5:1 on the dark sidebar. */
+  --color-attention: #d33f22;
+  --color-attention-tint: #fbeae6;
+  --color-attention-ink: #a92c1c;
+  --color-attention-on-dark: #ff9b96;
+
+  --animate-enter: enter 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-ping-once: ping-once 900ms ease-out;
+
+  @keyframes enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
   }
-  body {
-    @apply bg-background text-foreground;
+
+  @keyframes ping-once {
+    from {
+      transform: scale(1);
+      opacity: 0.6;
+    }
+    to {
+      transform: scale(2.6);
+      opacity: 0;
+    }
   }
-  html {
-    @apply font-sans;
+}
+
+/* With reduced motion the entrance, the refresh ping and every transition are static. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
   }
 }
