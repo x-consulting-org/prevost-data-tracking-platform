@@ -449,22 +449,24 @@ function planOperations(now: Date): PlannedShipment[] {
   for (const shipment of current.filter((s) => s.tportTripId !== null)) {
     shipment.vehiclePlate = nextPlate();
   }
-  const startsAt = (shipment: PlannedShipment) => shipment.pickedUpAt ?? shipment.pickupAt;
+  // A trip starts at its actual pickup, or its planned one while not yet picked up.
   const takers = current
-    .filter((shipment) => shipment.tportTripId !== null && shipment.deliveredAt === null)
-    .toSorted((a, b) => (startsAt(a)?.getTime() ?? 0) - (startsAt(b)?.getTime() ?? 0));
+    .flatMap((shipment) => {
+      const startsAt = shipment.pickedUpAt ?? shipment.pickupAt;
+      return shipment.tportTripId !== null && shipment.deliveredAt === null && startsAt !== null
+        ? [{ startsAt, shipment }]
+        : [];
+    })
+    .toSorted((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
   for (const { deliveredAt, shipment } of unloaded) {
-    const takerIndex = takers.findIndex((taker) => {
-      const start = startsAt(taker);
-      return (
-        start !== null &&
-        start > deliveredAt &&
-        start.getTime() - deliveredAt.getTime() <= maxSeededTurnaroundHours * hourMs
-      );
-    });
+    const takerIndex = takers.findIndex(
+      ({ startsAt }) =>
+        startsAt > deliveredAt &&
+        startsAt.getTime() - deliveredAt.getTime() <= maxSeededTurnaroundHours * hourMs,
+    );
     if (takerIndex === -1) continue;
     const [taker] = takers.splice(takerIndex, 1);
-    taker.vehiclePlate = shipment.vehiclePlate;
+    taker.shipment.vehiclePlate = shipment.vehiclePlate;
   }
 
   return planned;

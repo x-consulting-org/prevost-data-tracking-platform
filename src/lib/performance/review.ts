@@ -27,7 +27,7 @@ export const reviewMetricIds = [
 export type ReviewMetricId = (typeof reviewMetricIds)[number];
 
 /** How a metric's number reads: a duration in ms, a share between 0 and 1, or a count. */
-export type ReviewMetricUnit = "duration" | "share" | "count";
+type ReviewMetricUnit = "duration" | "share" | "count";
 
 export const reviewMetricUnit = {
   idleAfterUnload: "duration",
@@ -37,7 +37,9 @@ export const reviewMetricUnit = {
   repeatedChanges: "share",
 } as const satisfies Record<ReviewMetricId, ReviewMetricUnit>;
 
-export type Verdict = "strength" | "on_par" | "needs_work";
+export const verdicts = ["strength", "on_par", "needs_work"] as const;
+
+export type Verdict = (typeof verdicts)[number];
 
 export type MetricValue =
   | { kind: "measured"; value: number; sampleSize: number }
@@ -66,7 +68,6 @@ export type DispatcherReview<TDispatcher> = {
 export type PerformanceReview<TDispatcher> = {
   /** The rules this review was computed with. */
   settings: MetricSettings;
-  windowStart: Date;
   team: Record<ReviewMetricId, MetricValue>;
   dispatchers: DispatcherReview<TDispatcher>[];
 };
@@ -191,7 +192,7 @@ function observe(
 }
 
 /** The unanswered count has no sample beyond itself: its `sampleSize` is the count. */
-function valuesOf(
+function ownValues(
   observations: Observations,
   settings: MetricSettings,
 ): Record<ReviewMetricId, MetricValue> {
@@ -241,28 +242,33 @@ export function buildPerformanceReview<TDispatcher extends { id: string }>(
   const all = rows.map((row) => row.observations);
   const unansweredTotal = all.reduce((sum, o) => sum + o.unanswered, 0);
   const team: Record<ReviewMetricId, MetricValue> = {
-    ...valuesOf(
-      {
-        idleAfterUnload: all.flatMap((o) => o.idleAfterUnload),
-        firstResponse: all.flatMap((o) => o.firstResponse),
-        decision: all.flatMap((o) => o.decision),
-        repeatedChanges: all.flatMap((o) => o.repeatedChanges),
-        unanswered: 0,
-      },
+    idleAfterUnload: medianOf(
+      all.flatMap((o) => o.idleAfterUnload),
+      settings,
+    ),
+    firstResponse: medianOf(
+      all.flatMap((o) => o.firstResponse),
+      settings,
+    ),
+    decision: medianOf(
+      all.flatMap((o) => o.decision),
       settings,
     ),
     unanswered:
       rows.length === 0
         ? { kind: "insufficient_data", sampleSize: 0 }
         : { kind: "measured", value: unansweredTotal / rows.length, sampleSize: unansweredTotal },
+    repeatedChanges: shareOf(
+      all.flatMap((o) => o.repeatedChanges),
+      settings,
+    ),
   };
 
   return {
     settings,
-    windowStart,
     team,
     dispatchers: rows.map(({ dispatcher, observations }) => {
-      const own = valuesOf(observations, settings);
+      const own = ownValues(observations, settings);
       return {
         dispatcher,
         openShipmentCount: shipments.filter(
@@ -334,12 +340,25 @@ export const verdictLabel = {
   needs_work: "Fejlesztendő",
 } as const satisfies Record<Verdict, string>;
 
+/** Shown in place of a verdict when a metric has too few cases. */
+export const insufficientDataLabel = "Kevés adat";
+
+/** How many of `metrics` landed on each verdict; those without enough data are not counted. */
+export function countVerdicts(metrics: readonly DispatcherMetric[]): Record<Verdict, number> {
+  const counts = { strength: 0, on_par: 0, needs_work: 0 };
+  for (const metric of metrics) {
+    if (metric.kind === "measured") counts[metric.verdict] += 1;
+  }
+  return counts;
+}
+
 /** The whole review in a few numbers: what the Mérőszámok page shows a rule change would do. */
 export type ReviewSummary = {
   verdicts: Record<Verdict, number>;
   /** Dispatcher metrics left without a value for lack of data. */
   insufficient: number;
-  /** Requests open now without a reply past the threshold, across the team. */
+  /** Requests open now without a reply past the threshold, across the team (the team value's
+   * `sampleSize`: the count is its own sample). */
   unanswered: number;
   /** Shipments requested in the window, not cancelled: the sample of the change share. */
   shipmentsInWindow: number;
@@ -353,16 +372,10 @@ export function summarizeReview<TDispatcher>(
   const metrics = review.dispatchers.flatMap(({ metrics }) =>
     reviewMetricIds.map((id) => metrics[id]),
   );
-  const count = (verdict: Verdict) =>
-    metrics.filter((metric) => metric.kind === "measured" && metric.verdict === verdict).length;
   const { unanswered, repeatedChanges } = review.team;
 
   return {
-    verdicts: {
-      strength: count("strength"),
-      on_par: count("on_par"),
-      needs_work: count("needs_work"),
-    },
+    verdicts: countVerdicts(metrics),
     insufficient: metrics.filter((metric) => metric.kind === "insufficient_data").length,
     unanswered: unanswered.sampleSize,
     shipmentsInWindow: repeatedChanges.sampleSize,

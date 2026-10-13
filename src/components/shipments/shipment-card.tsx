@@ -1,9 +1,9 @@
 import { AlertList, AttentionIcon } from "@/components/shipments/alert-list";
-import { ShipmentStatus } from "@/generated/prisma/enums";
 import { CountryCode } from "@/components/shipments/country-code";
 import { DispatcherLink } from "@/components/shipments/dispatcher-link";
 import { ShipmentReferenceButton } from "@/components/shipments/shipment-reference-button";
 import { statusStyle } from "@/components/shipments/status-badge";
+import { ShipmentStatus } from "@/generated/prisma/enums";
 import { formatDateTime, formatDuration, formatRelative } from "@/lib/format";
 import { reviewMetricText } from "@/lib/performance/review";
 import {
@@ -188,12 +188,14 @@ function Route({
   );
 }
 
-/** `slow` marks a value past the review's threshold; `running` a clock still ticking. */
+/**
+ * `late`: the reply took longer than the unanswered threshold. `overdue`: it is still missing
+ * past it, the case the unanswered alert is raised for.
+ */
 type MetricLine = {
   id: "firstResponse" | "decision" | "idleAfterUnload";
   text: string;
-  slow: boolean;
-  running: boolean;
+  state: "normal" | "late" | "overdue";
 };
 
 /**
@@ -216,16 +218,14 @@ function metricLines(
     lines.push({
       id: "firstResponse",
       text: formatDuration(tookMs),
-      slow: tookMs >= unansweredAfterMs(settings),
-      running: false,
+      state: tookMs >= unansweredAfterMs(settings) ? "late" : "normal",
     });
   } else if (status === ShipmentStatus.UNHANDLED) {
     const waitingMs = since(requestedAt, now);
     lines.push({
       id: "firstResponse",
       text: `még nincs, ${formatDuration(waitingMs)}`,
-      slow: waitingMs >= unansweredAfterMs(settings),
-      running: true,
+      state: waitingMs >= unansweredAfterMs(settings) ? "overdue" : "normal",
     });
   }
 
@@ -233,15 +233,13 @@ function metricLines(
     lines.push({
       id: "decision",
       text: formatDuration(since(requestedAt, milestones.tripLinkedAt)),
-      slow: false,
-      running: false,
+      state: "normal",
     });
   } else if (status === ShipmentStatus.ORGANIZING) {
     lines.push({
       id: "decision",
       text: `még nincs, ${formatDuration(since(requestedAt, now))}`,
-      slow: false,
-      running: true,
+      state: "normal",
     });
   }
 
@@ -250,16 +248,14 @@ function metricLines(
       lines.push({
         id: "idleAfterUnload",
         text: formatDuration(since(turnaround.unloadedAt, turnaround.nextPickupAt)),
-        slow: false,
-        running: false,
+        state: "normal",
       });
       break;
     case "waiting":
       lines.push({
         id: "idleAfterUnload",
         text: `üresen, ${formatDuration(since(turnaround.unloadedAt, now))}`,
-        slow: false,
-        running: true,
+        state: "normal",
       });
       break;
     case "no_vehicle":
@@ -279,9 +275,9 @@ function MetricLines({ lines }: { lines: MetricLine[] }) {
         <div key={line.id} className="contents">
           <dt className="text-text-secondary">{reviewMetricText[line.id].short}</dt>
           <dd
-            className={`flex items-center justify-end gap-1 text-right font-medium tabular-nums ${line.slow ? "text-attention-ink" : "text-text-primary"}`}
+            className={`flex items-center justify-end gap-1 text-right font-medium tabular-nums ${line.state === "normal" ? "text-text-primary" : "text-attention-ink"}`}
           >
-            {line.slow && line.running ? <AttentionIcon /> : null}
+            {line.state === "overdue" ? <AttentionIcon /> : null}
             {line.text}
           </dd>
         </div>

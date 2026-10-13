@@ -56,18 +56,17 @@ export function getShipmentAlerts(
         alerts.push({ kind: "pickup_soon_unplanned", pickupAt: shipment.pickupAt });
       }
       break;
-    case ShipmentStatus.IN_TRANSIT:
+    case ShipmentStatus.IN_TRANSIT: {
       if (shipment.pickupAt === null) {
         alerts.push({ kind: "missing_schedule" });
       }
       // Same rule as the card's delivery line: past plan by more than the on-time tolerance.
-      if (
-        shipment.deliveryAt !== null &&
-        stopTiming(shipment.deliveryAt, null, now, onTimeToleranceMs(settings)).kind === "overdue"
-      ) {
-        alerts.push({ kind: "delivery_overdue", deliveryAt: shipment.deliveryAt });
+      const delivery = stopTiming(shipment.deliveryAt, null, now, onTimeToleranceMs(settings));
+      if (delivery.kind === "overdue") {
+        alerts.push({ kind: "delivery_overdue", deliveryAt: delivery.plannedAt });
       }
       break;
+    }
     case ShipmentStatus.COMPLETED:
     case ShipmentStatus.CANCELLED:
       break;

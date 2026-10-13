@@ -17,7 +17,7 @@ const settingsSelect = {
   minShareSample: true,
 } satisfies Prisma.MetricSettingsSelect satisfies Record<keyof MetricSettings, true>;
 
-export type StoredMetricSettings = { settings: MetricSettings; updatedAt: Date };
+type StoredMetricSettings = { settings: MetricSettings; updatedAt: Date };
 
 export async function findMetricSettings(): Promise<StoredMetricSettings> {
   const { updatedAt, ...settings } = await prisma.metricSettings.findUniqueOrThrow({

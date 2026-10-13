@@ -70,7 +70,7 @@ export function isLate(delayMs: number | null, toleranceMs: number): boolean {
 }
 
 /** The earliest pickup at or after `unloadedAt`, from the same vehicle's pickups. */
-export function nextPickupAfter(unloadedAt: Date, pickups: readonly Date[]): Date | null {
+function nextPickupAfter(unloadedAt: Date, pickups: readonly Date[]): Date | null {
   const later = pickups.filter((pickup) => pickup >= unloadedAt);
   return later.length === 0 ? null : new Date(Math.min(...later.map((p) => p.getTime())));
 }
