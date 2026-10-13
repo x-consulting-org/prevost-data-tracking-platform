@@ -32,9 +32,12 @@ Start Postgres, generate the Prisma client, apply migrations and load the demo d
 
 ```bash
 pnpm db:up
+pnpm prisma:generate
 pnpm prisma:migrate
 pnpm db:seed
 ```
+
+Prisma 7's `migrate dev` no longer generates the client, so after pulling a schema change run `pnpm prisma:generate` (or `pnpm install`) before seeding or starting the app; a stale client fails with `Cannot read properties of undefined` on the new models.
 
 `pnpm db:seed` replaces all shipment data with a fresh, deterministic demo set (times are relative to the run) and creates or updates the demo user with `DEMO_USER_PASSWORD`. Prisma 7 does not run it automatically after migrations. Never run it against a database that holds real shipments.
 
