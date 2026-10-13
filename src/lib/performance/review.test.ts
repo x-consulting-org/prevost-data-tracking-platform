@@ -23,6 +23,8 @@ function shipment(overrides: Partial<ReviewShipment>): ReviewShipment {
     vehicleId: null,
     firstResponseAt: null,
     tripLinkedAt: null,
+    pickedUpAt: null,
+    deliveredAt: null,
     changeCount: 0,
     ...overrides,
   };
@@ -91,14 +93,16 @@ describe("buildPerformanceReview", () => {
     expect(review.team.firstResponse).toEqual({ kind: "insufficient_data", sampleSize: 0 });
   });
 
-  it("measures an unload to the same vehicle's next pickup, crediting the unloading dispatcher", () => {
+  it("measures an actual unload to the vehicle's next actual pickup, for the unloading dispatcher", () => {
     const unload = (vehicleId: string, at: number) =>
       shipment({
         status: ShipmentStatus.COMPLETED,
         vehicleId,
-        pickupAt: hoursFromNow(at - 30),
-        deliveryAt: hoursFromNow(at),
+        pickedUpAt: hoursFromNow(at - 30),
+        deliveredAt: hoursFromNow(at),
       });
+    const pickup = (vehicleId: string, at: number) =>
+      shipment({ dispatcherId: bence.id, vehicleId, pickedUpAt: hoursFromNow(at) });
     const review = buildPerformanceReview(
       [anna, bence],
       [
@@ -106,16 +110,12 @@ describe("buildPerformanceReview", () => {
         unload("t2", -100),
         unload("t3", -100),
         // Next pickups, organised by someone else: the gap still counts for anna.
-        shipment({ dispatcherId: bence.id, vehicleId: "t1", pickupAt: hoursFromNow(-96) }),
-        shipment({ dispatcherId: bence.id, vehicleId: "t2", pickupAt: hoursFromNow(-90) }),
-        shipment({ dispatcherId: bence.id, vehicleId: "t2", pickupAt: hoursFromNow(-80) }),
-        shipment({ dispatcherId: bence.id, vehicleId: "t3", pickupAt: hoursFromNow(-98) }),
-        // A cancelled shipment never loaded the truck.
-        shipment({
-          status: ShipmentStatus.CANCELLED,
-          vehicleId: "t3",
-          pickupAt: hoursFromNow(-99),
-        }),
+        pickup("t1", -96),
+        pickup("t2", -90),
+        pickup("t2", -80),
+        pickup("t3", -98),
+        // Planned only: T-Port never reported this pickup, so it does not end the gap.
+        shipment({ vehicleId: "t3", pickupAt: hoursFromNow(-99) }),
       ],
       now,
     );
@@ -134,8 +134,8 @@ describe("buildPerformanceReview", () => {
         shipment({
           status: ShipmentStatus.COMPLETED,
           vehicleId: "t1",
-          pickupAt: hoursFromNow(-40),
-          deliveryAt: hoursFromNow(-10),
+          pickedUpAt: hoursFromNow(-40),
+          deliveredAt: hoursFromNow(-10),
         }),
       ],
       now,

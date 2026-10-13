@@ -1,5 +1,7 @@
 -- AlterEnum
 ALTER TYPE "ShipmentEventType" ADD VALUE 'RESPONSE_SENT';
+ALTER TYPE "ShipmentEventType" ADD VALUE 'PICKED_UP';
+ALTER TYPE "ShipmentEventType" ADD VALUE 'DELIVERED';
 
 -- AlterTable
 ALTER TABLE "shipment" ADD COLUMN     "vehicleId" TEXT;

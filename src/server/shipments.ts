@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
-import { ShipmentStatus, type DataSource } from "@/generated/prisma/enums";
+import { ShipmentEventType, ShipmentStatus, type DataSource } from "@/generated/prisma/enums";
 import { toPaginatedResult, toSkipTake, type PaginatedResult } from "@/lib/pagination";
 import { prisma } from "@/lib/prisma";
 import { getShipmentAlerts, type ShipmentAlert } from "@/lib/shipments/alerts";
@@ -12,6 +12,14 @@ import type {
   SortableShipmentColumn,
 } from "@/lib/shipments/schemas";
 import { externalSources } from "@/lib/shipments/sources";
+import {
+  milestoneEventTypes,
+  milestonesOf,
+  pickupsByVehicle,
+  truckTurnaround,
+  type ShipmentMilestones,
+  type TruckTurnaround,
+} from "@/lib/shipments/milestones";
 import { boardStatuses, boardStatusesFor, closedVisibleDays } from "@/lib/shipments/status";
 import { dayMs } from "@/lib/time";
 
@@ -28,8 +36,14 @@ const shipmentCardSelect = {
   destinationCity: true,
   destinationCountry: true,
   dispatcherId: true,
+  vehicleId: true,
   dispatcher: { select: { id: true, name: true } },
   customer: { select: { id: true, name: true } },
+  events: {
+    where: { type: { in: [...milestoneEventTypes] } },
+    select: { type: true, occurredAt: true },
+    orderBy: [{ occurredAt: "asc" }, { id: "asc" }],
+  },
 } satisfies Prisma.ShipmentSelect;
 
 const shipmentDetailSelect = {
@@ -49,8 +63,15 @@ type ShipmentCardRow = Prisma.ShipmentGetPayload<{ select: typeof shipmentCardSe
 type ShipmentDetailRow = Prisma.ShipmentGetPayload<{ select: typeof shipmentDetailSelect }>;
 
 export type DispatcherSummary = Prisma.DispatcherGetPayload<{ select: typeof dispatcherSelect }>;
-export type ShipmentCard = ShipmentCardRow & { alerts: ShipmentAlert[] };
-export type ShipmentDetail = ShipmentDetailRow & { alerts: ShipmentAlert[] };
+/** What the cards, the table and the detail add to a row: alerts, milestones, the truck's turn. */
+type Derived = {
+  alerts: ShipmentAlert[];
+  milestones: ShipmentMilestones;
+  turnaround: TruckTurnaround;
+};
+
+export type ShipmentCard = ShipmentCardRow & Derived;
+export type ShipmentDetail = ShipmentDetailRow & Derived;
 
 export type StatusBoard = {
   /** The `now` alerts were computed against; relative times in the UI use it too. */
@@ -108,8 +129,49 @@ function boardWhere(filter: ShipmentFilter, now: Date): Prisma.ShipmentWhereInpu
   };
 }
 
-function withAlerts<TShipment extends ShipmentCardRow>(shipment: TShipment, now: Date) {
-  return { ...shipment, alerts: getShipmentAlerts(shipment, now) };
+/**
+ * Adds what is derived from the current time and the events. A delivered shipment's truck is
+ * followed to its next actual pickup, which may belong to a shipment outside `shipments`.
+ */
+async function withDerived<TShipment extends ShipmentCardRow>(
+  shipments: readonly TShipment[],
+  now: Date,
+): Promise<(TShipment & Derived)[]> {
+  const withMilestones = shipments.map((shipment) => ({
+    shipment,
+    milestones: milestonesOf(shipment.events),
+  }));
+  const unloadedVehicleIds = [
+    ...new Set(
+      withMilestones.flatMap(({ shipment, milestones }) =>
+        shipment.vehicleId !== null && milestones.deliveredAt !== null ? [shipment.vehicleId] : [],
+      ),
+    ),
+  ];
+  const pickups =
+    unloadedVehicleIds.length === 0
+      ? []
+      : await prisma.shipmentEvent.findMany({
+          where: {
+            type: ShipmentEventType.PICKED_UP,
+            shipment: { vehicleId: { in: unloadedVehicleIds } },
+          },
+          select: { occurredAt: true, shipment: { select: { vehicleId: true } } },
+          orderBy: [{ occurredAt: "asc" }, { id: "asc" }],
+        });
+  const pickupsOf = pickupsByVehicle(
+    pickups.map((pickup) => ({
+      vehicleId: pickup.shipment.vehicleId,
+      pickedUpAt: pickup.occurredAt,
+    })),
+  );
+
+  return withMilestones.map(({ shipment, milestones }) => ({
+    ...shipment,
+    alerts: getShipmentAlerts(shipment, now),
+    milestones,
+    turnaround: truckTurnaround(milestones.deliveredAt, shipment.vehicleId, pickupsOf),
+  }));
 }
 
 export async function findStatusBoard(filter: ShipmentFilter, now: Date): Promise<StatusBoard> {
@@ -121,10 +183,7 @@ export async function findStatusBoard(filter: ShipmentFilter, now: Date): Promis
 
   return {
     generatedAt: now,
-    columns: groupByStatus(
-      shipments.map((shipment) => withAlerts(shipment, now)),
-      boardStatusesFor(filter),
-    ),
+    columns: groupByStatus(await withDerived(shipments, now), boardStatusesFor(filter)),
   };
 }
 
@@ -149,7 +208,7 @@ export async function listShipments(
   ]);
 
   return toPaginatedResult({
-    items: shipments.map((shipment) => withAlerts(shipment, now)),
+    items: await withDerived(shipments, now),
     rowCount,
     pageIndex,
     pageSize,
@@ -163,7 +222,9 @@ export async function findShipmentDetail(id: string, now: Date): Promise<Shipmen
     select: shipmentDetailSelect,
   });
 
-  return shipment && withAlerts(shipment, now);
+  if (shipment === null) return null;
+  const [detail] = await withDerived([shipment], now);
+  return detail;
 }
 
 export async function findDispatchers(): Promise<DispatcherSummary[]> {

@@ -4,6 +4,11 @@ import {
   unansweredRequestAfterHours,
   type AlertInput,
 } from "@/lib/shipments/alerts";
+import {
+  pickupsByVehicle,
+  truckTurnaround,
+  type ShipmentMilestones,
+} from "@/lib/shipments/milestones";
 import { dayMs } from "@/lib/time";
 
 /** The review looks back this many days from `now`. */
@@ -52,17 +57,14 @@ export type DispatcherMetric =
   | { kind: "measured"; value: number; sampleSize: number; verdict: Verdict }
   | { kind: "insufficient_data"; sampleSize: number };
 
-export type ReviewShipment = AlertInput & {
-  id: string;
-  dispatcherId: string;
-  vehicleId: string | null;
-  /** The first RESPONSE_SENT event; null while the customer got no reply. */
-  firstResponseAt: Date | null;
-  /** The TRIP_LINKED event; null while no T-Port trip is linked. */
-  tripLinkedAt: Date | null;
-  /** SCHEDULE_CHANGED and DETAILS_CHANGED events. */
-  changeCount: number;
-};
+export type ReviewShipment = AlertInput &
+  ShipmentMilestones & {
+    id: string;
+    dispatcherId: string;
+    vehicleId: string | null;
+    /** SCHEDULE_CHANGED and DETAILS_CHANGED events. */
+    changeCount: number;
+  };
 
 export type DispatcherReview<TDispatcher> = {
   dispatcher: TDispatcher;
@@ -119,44 +121,25 @@ export function verdictFor(value: number, team: number): Verdict {
 }
 
 /**
- * The time from an unload to the same vehicle's next pickup. An unload with no later pickup
- * yet is left out: the truck may still be waiting, so there is no gap to measure.
+ * The time from an actual unload to the same vehicle's next actual pickup (`truckTurnaround`).
+ * An unload with no later pickup yet is left out: the truck may still be waiting, so there is
+ * no gap to measure.
  */
 function idleGaps(shipments: readonly ReviewShipment[], windowStart: Date, now: Date) {
-  const nextPickups = new Map<string, number[]>();
-  for (const shipment of shipments) {
-    if (
-      shipment.vehicleId === null ||
-      shipment.pickupAt === null ||
-      shipment.status === ShipmentStatus.CANCELLED
-    ) {
-      continue;
-    }
-    const pickups = nextPickups.get(shipment.vehicleId) ?? [];
-    pickups.push(shipment.pickupAt.getTime());
-    nextPickups.set(shipment.vehicleId, pickups);
-  }
-
-  const gaps: { dispatcherId: string; gapMs: number }[] = [];
-  for (const shipment of shipments) {
-    if (
-      shipment.status !== ShipmentStatus.COMPLETED ||
-      shipment.vehicleId === null ||
-      shipment.deliveryAt === null ||
-      shipment.deliveryAt < windowStart ||
-      shipment.deliveryAt > now
-    ) {
-      continue;
-    }
-    const unloadMs = shipment.deliveryAt.getTime();
-    const later = (nextPickups.get(shipment.vehicleId) ?? []).filter(
-      (pickupMs) => pickupMs >= unloadMs,
-    );
-    if (later.length > 0) {
-      gaps.push({ dispatcherId: shipment.dispatcherId, gapMs: Math.min(...later) - unloadMs });
-    }
-  }
-  return gaps;
+  const pickups = pickupsByVehicle(shipments);
+  return shipments.flatMap((shipment) => {
+    const turnaround = truckTurnaround(shipment.deliveredAt, shipment.vehicleId, pickups);
+    return turnaround.kind === "reloaded" &&
+      turnaround.unloadedAt >= windowStart &&
+      turnaround.unloadedAt <= now
+      ? [
+          {
+            dispatcherId: shipment.dispatcherId,
+            gapMs: turnaround.nextPickupAt.getTime() - turnaround.unloadedAt.getTime(),
+          },
+        ]
+      : [];
+  });
 }
 
 function emptyObservations(): Observations {
@@ -289,38 +272,44 @@ export function buildPerformanceReview<TDispatcher extends { id: string }>(
 /**
  * What each metric is called and how it is counted, as the UI shows it. `sample` names the
  * cases a number is based on ("14 lerakás alapján"); the unanswered count is its own sample.
+ * `short` names the metric on a shipment card, where one case of it is shown.
  */
 export const reviewMetricText = {
   idleAfterUnload: {
     label: "Leürült kamion következő felrakásáig",
+    short: "Kamion lerakás után",
     definition:
-      "Egy lerakástól ugyanannak a kamionnak a következő felrakásáig eltelt idő mediánja. Az a lerakás, amely után még nincs új felrakás, nem számít bele.",
+      "A T-Port szerinti lerakástól ugyanannak a kamionnak a következő felrakásáig eltelt idő mediánja. Az a lerakás, amely után még nincs új felrakás, nem számít bele.",
     sample: "lerakás",
   },
   firstResponse: {
     label: "Első érdemi válaszig",
+    short: "Első válasz",
     definition: "Az igény beérkezésétől a megbízónak küldött első válaszig eltelt idő mediánja.",
     sample: "igény",
   },
   decision: {
     label: "Döntésig",
+    short: "Döntés (járat)",
     definition:
       "Az igény beérkezésétől a T-Port járat hozzárendeléséig eltelt idő mediánja: ekkor dől el, melyik kamion viszi.",
     sample: "igény",
   },
   unanswered: {
     label: "Válasz nélkül maradt igények",
+    short: "Válasz nélkül",
     definition: `A most nyitott igények, amelyekre ${unansweredRequestAfterHours} órán belül nem ment válasz. A csapatérték a kollégánkénti átlag.`,
     sample: null,
   },
   repeatedChanges: {
     label: "Többször módosított fuvarok",
+    short: "Módosítások",
     definition: `Azoknak a fuvaroknak az aránya, amelyeken legalább ${repeatedChangeCount}-szer módosult az időpont vagy egy adat, bárki kérte is.`,
     sample: "fuvar",
   },
 } as const satisfies Record<
   ReviewMetricId,
-  { label: string; definition: string; sample: string | null }
+  { label: string; short: string; definition: string; sample: string | null }
 >;
 
 export const verdictLabel = {

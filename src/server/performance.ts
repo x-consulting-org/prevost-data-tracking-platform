@@ -9,6 +9,7 @@ import {
   type ReviewShipment,
 } from "@/lib/performance/review";
 import { prisma } from "@/lib/prisma";
+import { milestoneEventTypes, milestonesOf } from "@/lib/shipments/milestones";
 import { dayMs } from "@/lib/time";
 import { findDispatchers, type DispatcherSummary } from "@/server/shipments";
 
@@ -24,7 +25,7 @@ const reviewShipmentSelect = {
   tportTripId: true,
   vehicleId: true,
   events: {
-    where: { type: { in: [ShipmentEventType.RESPONSE_SENT, ShipmentEventType.TRIP_LINKED] } },
+    where: { type: { in: [...milestoneEventTypes] } },
     select: { type: true, occurredAt: true },
     orderBy: [{ occurredAt: "asc" }, { id: "asc" }],
   },
@@ -34,21 +35,13 @@ const reviewShipmentSelect = {
 type ReviewShipmentRow = Prisma.ShipmentGetPayload<{ select: typeof reviewShipmentSelect }>;
 
 function toReviewShipment({ events, _count, ...shipment }: ReviewShipmentRow): ReviewShipment {
-  // Events come oldest first, so `find` gives the first response.
-  const firstOf = (type: ShipmentEventType) =>
-    events.find((event) => event.type === type)?.occurredAt ?? null;
-
-  return {
-    ...shipment,
-    firstResponseAt: firstOf(ShipmentEventType.RESPONSE_SENT),
-    tripLinkedAt: firstOf(ShipmentEventType.TRIP_LINKED),
-    changeCount: _count.events,
-  };
+  return { ...shipment, ...milestonesOf(events), changeCount: _count.events };
 }
 
 /**
- * Everything the review window touches: shipments requested, picked up or unloaded in it (an
- * unload's next pickup is always later, so it is in the window too) and every open shipment.
+ * Everything the review window touches: shipments requested, planned to be picked up or
+ * unloaded in it (an unload's next pickup is always later, so it is in the window too) and every
+ * open shipment.
  */
 export async function findPerformanceReview(
   now: Date,
