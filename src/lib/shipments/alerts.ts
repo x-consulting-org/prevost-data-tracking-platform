@@ -1,5 +1,6 @@
 import { ShipmentStatus } from "@/generated/prisma/enums";
 import { formatDateTime } from "@/lib/format";
+import { stopTiming } from "@/lib/shipments/milestones";
 import { hourMs } from "@/lib/time";
 
 /** Thresholds are placeholders until the operations workshop sets the real ones. */
@@ -45,7 +46,11 @@ export function getShipmentAlerts(shipment: AlertInput, now: Date): ShipmentAler
       if (shipment.pickupAt === null) {
         alerts.push({ kind: "missing_schedule" });
       }
-      if (shipment.deliveryAt !== null && shipment.deliveryAt.getTime() < nowMs) {
+      // Same rule as the card's delivery line: past plan by more than the on-time tolerance.
+      if (
+        shipment.deliveryAt !== null &&
+        stopTiming(shipment.deliveryAt, null, now).kind === "overdue"
+      ) {
         alerts.push({ kind: "delivery_overdue", deliveryAt: shipment.deliveryAt });
       }
       break;

@@ -59,6 +59,8 @@ const historyVehiclesPerDispatcher = 2;
 const historyDays = 32;
 /** History ends before the boards' completed lane starts, so the boards look as before. */
 const historyEndsDaysAgo = 7.5;
+/** A current unload is linked to a later current trip only if it starts within this. */
+const maxSeededTurnaroundHours = 48;
 
 const customers = [
   "Dunamenti Gépgyártó Kft.",
@@ -192,6 +194,9 @@ type PlannedShipment = {
   dispatcherIndex: number;
   tportTripId: string | null;
   vehiclePlate: string | null;
+  /** What T-Port reported; the plan is `pickupAt` / `deliveryAt`. */
+  pickedUpAt: Date | null;
+  deliveredAt: Date | null;
   route: (typeof routes)[number];
   pickupAt: Date | null;
   deliveryAt: Date | null;
@@ -233,6 +238,10 @@ function planOperations(now: Date): PlannedShipment[] {
       occurredAt: respondedAt,
     },
   ];
+
+  /** Mostly within minutes of plan; one in five runs late by up to four hours. */
+  const actualFor = (plannedAt: Date, latestAt: Date) =>
+    earliest(after(plannedAt, random.chance(0.2) ? [0.75, 4] : [-0.4, 0.4]), latestAt);
 
   const tripEvent = (tripId: string, linkedAt: Date): PlannedEvent => ({
     type: ShipmentEventType.TRIP_LINKED,
@@ -279,8 +288,10 @@ function planOperations(now: Date): PlannedShipment[] {
       let unloadedAt = at(-historyDays * 24 + random.between(0, 24));
       for (;;) {
         const pickupAt = after(unloadedAt, profile.idle);
+        const pickedUpAt = actualFor(pickupAt, now);
         const deliveryAt = after(pickupAt, [20, 50]);
-        if (deliveryAt > at(-historyEndsDaysAgo * 24)) break;
+        const deliveredAt = actualFor(deliveryAt, now);
+        if (deliveredAt > at(-historyEndsDaysAgo * 24)) break;
 
         const requestedAt = new Date(pickupAt.getTime() - random.between(18, 60) * hourMs);
         const respondedAt = after(requestedAt, profile.response);
@@ -291,11 +302,13 @@ function planOperations(now: Date): PlannedShipment[] {
         );
         planned.push({
           status: ShipmentStatus.COMPLETED,
-          statusChangedAt: deliveryAt,
+          statusChangedAt: deliveredAt,
           requestedAt,
           dispatcherIndex,
           tportTripId: tripId,
           vehiclePlate: plate,
+          pickedUpAt,
+          deliveredAt,
           route: random.pick(routes),
           pickupAt,
           deliveryAt,
@@ -303,21 +316,10 @@ function planOperations(now: Date): PlannedShipment[] {
             ...responseEvents(respondedAt),
             tripEvent(tripId, linkedAt),
             ...changeEvents(profile, requestedAt, pickupAt, pickupAt),
-            {
-              type: ShipmentEventType.STATUS_CHANGED,
-              source: DataSource.TPORT,
-              summary: "Felrakás megtörtént",
-              occurredAt: pickupAt,
-            },
-            {
-              type: ShipmentEventType.STATUS_CHANGED,
-              source: DataSource.TPORT,
-              summary: "Lerakás megtörtént",
-              occurredAt: deliveryAt,
-            },
           ],
         });
-        unloadedAt = deliveryAt;
+        // The next trip is planned from the actual unload.
+        unloadedAt = deliveredAt;
       }
     }
   }
@@ -337,6 +339,8 @@ function planOperations(now: Date): PlannedShipment[] {
       let deliveryAt: Date | null;
       let tportTripId: string | null = null;
       let statusChangedAt: Date;
+      let pickedUpAt: Date | null = null;
+      let deliveredAt: Date | null = null;
       const events: PlannedEvent[] = [];
 
       switch (status) {
@@ -363,24 +367,19 @@ function planOperations(now: Date): PlannedShipment[] {
           }
           break;
         case ShipmentStatus.IN_TRANSIT:
-          pickupAt = at(-random.between(4, 60));
+          pickupAt = at(-random.between(4, 110));
           requestedAt = new Date(pickupAt.getTime() - random.between(36, 120) * hourMs);
           // 0–2: delivery deadline already passed.
           deliveryAt = at(index < 3 ? -random.between(1, 10) : random.between(4, 50));
           tportTripId = tripId;
-          statusChangedAt = pickupAt;
+          pickedUpAt = actualFor(pickupAt, at(-0.2));
+          statusChangedAt = pickedUpAt;
           events.push(
             ...responseEvents(after(requestedAt, profile.response)),
             tripEvent(
               tripId,
               earliest(after(requestedAt, profile.decision), new Date(pickupAt.getTime() - hourMs)),
             ),
-            {
-              type: ShipmentEventType.STATUS_CHANGED,
-              source: DataSource.TPORT,
-              summary: "Felrakás megtörtént",
-              occurredAt: pickupAt,
-            },
           );
           break;
         case ShipmentStatus.COMPLETED:
@@ -389,19 +388,15 @@ function planOperations(now: Date): PlannedShipment[] {
           pickupAt = new Date(deliveryAt.getTime() - random.between(20, 60) * hourMs);
           requestedAt = new Date(pickupAt.getTime() - random.between(36, 120) * hourMs);
           tportTripId = tripId;
-          statusChangedAt = deliveryAt;
+          pickedUpAt = actualFor(pickupAt, at(-4));
+          deliveredAt = actualFor(deliveryAt, at(-0.5));
+          statusChangedAt = deliveredAt;
           events.push(
             ...responseEvents(after(requestedAt, profile.response)),
             tripEvent(
               tripId,
               earliest(after(requestedAt, profile.decision), new Date(pickupAt.getTime() - hourMs)),
             ),
-            {
-              type: ShipmentEventType.STATUS_CHANGED,
-              source: DataSource.TPORT,
-              summary: "Lerakás megtörtént",
-              occurredAt: deliveryAt,
-            },
           );
           break;
         case ShipmentStatus.CANCELLED:
@@ -431,14 +426,45 @@ function planOperations(now: Date): PlannedShipment[] {
         requestedAt,
         dispatcherIndex,
         tportTripId,
-        // Each current trip has its own truck; only the history chains trucks.
-        vehiclePlate: tportTripId === null ? null : nextPlate(),
+        // Assigned below, once every current shipment is planned.
+        vehiclePlate: null,
+        pickedUpAt,
+        deliveredAt,
         route: random.pick(routes),
         pickupAt,
         deliveryAt,
         events,
       });
     }
+  }
+
+  // Trucks the current shipments unloaded take the next current trips that start after the
+  // unload, so the cards can show both reloaded and still waiting trucks.
+  const current = planned.filter((shipment) => shipment.vehiclePlate === null);
+  const unloaded = current
+    .flatMap((shipment) =>
+      shipment.deliveredAt === null ? [] : [{ deliveredAt: shipment.deliveredAt, shipment }],
+    )
+    .toSorted((a, b) => a.deliveredAt.getTime() - b.deliveredAt.getTime());
+  for (const shipment of current.filter((s) => s.tportTripId !== null)) {
+    shipment.vehiclePlate = nextPlate();
+  }
+  const startsAt = (shipment: PlannedShipment) => shipment.pickedUpAt ?? shipment.pickupAt;
+  const takers = current
+    .filter((shipment) => shipment.tportTripId !== null && shipment.deliveredAt === null)
+    .toSorted((a, b) => (startsAt(a)?.getTime() ?? 0) - (startsAt(b)?.getTime() ?? 0));
+  for (const { deliveredAt, shipment } of unloaded) {
+    const takerIndex = takers.findIndex((taker) => {
+      const start = startsAt(taker);
+      return (
+        start !== null &&
+        start > deliveredAt &&
+        start.getTime() - deliveredAt.getTime() <= maxSeededTurnaroundHours * hourMs
+      );
+    });
+    if (takerIndex === -1) continue;
+    const [taker] = takers.splice(takerIndex, 1);
+    taker.vehiclePlate = shipment.vehiclePlate;
   }
 
   return planned;
@@ -518,6 +544,26 @@ async function seedOperations(now: Date) {
                     occurredAt: shipment.requestedAt,
                   },
                   ...shipment.events,
+                  ...(shipment.pickedUpAt === null
+                    ? []
+                    : [
+                        {
+                          type: ShipmentEventType.PICKED_UP,
+                          source: DataSource.TPORT,
+                          summary: "Felrakás megtörtént",
+                          occurredAt: shipment.pickedUpAt,
+                        },
+                      ]),
+                  ...(shipment.deliveredAt === null
+                    ? []
+                    : [
+                        {
+                          type: ShipmentEventType.DELIVERED,
+                          source: DataSource.TPORT,
+                          summary: "Lerakás megtörtént",
+                          occurredAt: shipment.deliveredAt,
+                        },
+                      ]),
                 ],
               },
             },

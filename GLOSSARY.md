@@ -20,6 +20,10 @@ _Avoid_: User, agent, planner
 A truck as T-Port knows it, identified by its plate. The shipments on one vehicle follow each other; the time between an unload and the next pickup is how long the truck stood empty.
 _Avoid_: Truck in code, asset
 
+**Milestone** (UI: _tény_, e.g. _Felrakva_):
+When a step of a shipment actually happened: first reply, T-Port trip linked, picked up, delivered. Read from events; shown next to the plan (`pickupAt`, `deliveryAt`), which is what the customer or the dispatcher planned.
+_Avoid_: Actual date column, status timestamp
+
 **Performance review** (UI: _értékelés_, the Kollégák screen):
 Each dispatcher's metrics over the last 30 days next to the team's, with a verdict per metric: strength, on par or needs work. Derived from shipments and their events, never stored.
 _Avoid_: Score, ranking, KPI

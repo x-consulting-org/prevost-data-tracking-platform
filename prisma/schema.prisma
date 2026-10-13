@@ -91,6 +91,10 @@ enum ShipmentEventType {
   SCHEDULE_CHANGED
   DETAILS_CHANGED
   TRIP_LINKED
+  /// T-Port reports the truck loaded: the actual pickup, next to the planned `pickupAt`.
+  PICKED_UP
+  /// T-Port reports the truck unloaded: the actual delivery, next to the planned `deliveryAt`.
+  DELIVERED
 }
 
 /// Where a fact came from. The demo seed uses the same values ingestion will.
