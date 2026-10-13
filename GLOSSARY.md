@@ -25,8 +25,12 @@ When a step of a shipment actually happened: first reply, T-Port trip linked, pi
 _Avoid_: Actual date column, status timestamp
 
 **Performance review** (UI: _értékelés_, the Kollégák screen):
-Each dispatcher's metrics over the last 30 days next to the team's, with a verdict per metric: strength, on par or needs work. Derived from shipments and their events, never stored.
+Each dispatcher's metrics over the review window (30 days by default) next to the team's, with a verdict per metric: strength, on par or needs work. Derived from shipments and their events, never stored.
 _Avoid_: Score, ranking, KPI
+
+**Metric settings** (UI: _mérőszámok_):
+The thresholds the review, the card clocks and the alerts share, kept in one database row and edited on the Mérőszámok page.
+_Avoid_: Config, KPI targets
 
 **Customer** (UI: _megbízó_):
 The company that requested the shipment.

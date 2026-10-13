@@ -1,9 +1,6 @@
 import { ShipmentStatus } from "@/generated/prisma/enums";
-import {
-  getShipmentAlerts,
-  unansweredRequestAfterHours,
-  type AlertInput,
-} from "@/lib/shipments/alerts";
+import type { MetricSettings } from "@/lib/performance/settings";
+import { getShipmentAlerts, type AlertInput } from "@/lib/shipments/alerts";
 import {
   pickupsByVehicle,
   truckTurnaround,
@@ -11,19 +8,12 @@ import {
 } from "@/lib/shipments/milestones";
 import { dayMs } from "@/lib/time";
 
-/** The review looks back this many days from `now`. */
-export const reviewWindowDays = 30;
-
-/**
- * Thresholds are placeholders until the operations workshop sets the real ones. A value within
- * `onParTolerance` of the team value is on par; a median needs `minMedianSample` cases and a
- * share `minShareSample`, below that the metric says there is too little data.
- */
-export const onParTolerance = 0.15;
-export const minMedianSample = 3;
-export const minShareSample = 5;
-/** A shipment counts as repeatedly changed from this many schedule or detail changes. */
-export const repeatedChangeCount = 2;
+export function reviewWindowStart(
+  now: Date,
+  { reviewWindowDays }: Pick<MetricSettings, "reviewWindowDays">,
+) {
+  return new Date(now.getTime() - reviewWindowDays * dayMs);
+}
 
 /** The review's metrics, in display order. For every one of them lower is better. */
 export const reviewMetricIds = [
@@ -74,6 +64,8 @@ export type DispatcherReview<TDispatcher> = {
 };
 
 export type PerformanceReview<TDispatcher> = {
+  /** The rules this review was computed with. */
+  settings: MetricSettings;
   windowStart: Date;
   team: Record<ReviewMetricId, MetricValue>;
   dispatchers: DispatcherReview<TDispatcher>[];
@@ -95,14 +87,14 @@ function median(values: readonly number[]): number {
   return sorted.length % 2 === 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
-function medianOf(values: readonly number[]): MetricValue {
-  return values.length < minMedianSample
+function medianOf(values: readonly number[], settings: MetricSettings): MetricValue {
+  return values.length < settings.minMedianSample
     ? { kind: "insufficient_data", sampleSize: values.length }
     : { kind: "measured", value: median(values), sampleSize: values.length };
 }
 
-function shareOf(flags: readonly boolean[]): MetricValue {
-  return flags.length < minShareSample
+function shareOf(flags: readonly boolean[], settings: MetricSettings): MetricValue {
+  return flags.length < settings.minShareSample
     ? { kind: "insufficient_data", sampleSize: flags.length }
     : {
         kind: "measured",
@@ -111,12 +103,20 @@ function shareOf(flags: readonly boolean[]): MetricValue {
       };
 }
 
-/** Lower is better for every metric, so a value well below the team's is a strength. */
-export function verdictFor(value: number, team: number): Verdict {
+/**
+ * Lower is better for every metric, so a value well below the team's is a strength. Within
+ * `onParTolerancePercent` of the team value either way is on par.
+ */
+export function verdictFor(
+  value: number,
+  team: number,
+  { onParTolerancePercent }: Pick<MetricSettings, "onParTolerancePercent">,
+): Verdict {
   if (team === 0) return value === 0 ? "on_par" : "needs_work";
   const ratio = value / team;
-  if (ratio <= 1 - onParTolerance) return "strength";
-  if (ratio >= 1 + onParTolerance) return "needs_work";
+  const tolerance = onParTolerancePercent / 100;
+  if (ratio <= 1 - tolerance) return "strength";
+  if (ratio >= 1 + tolerance) return "needs_work";
   return "on_par";
 }
 
@@ -158,6 +158,7 @@ function observe(
   shipments: readonly ReviewShipment[],
   windowStart: Date,
   now: Date,
+  settings: MetricSettings,
 ) {
   for (const { dispatcherId, gapMs } of idleGaps(shipments, windowStart, now)) {
     byDispatcher.get(dispatcherId)?.idleAfterUnload.push(gapMs);
@@ -167,7 +168,11 @@ function observe(
     const observations = byDispatcher.get(shipment.dispatcherId);
     if (observations === undefined) continue;
 
-    if (getShipmentAlerts(shipment, now).some((alert) => alert.kind === "unanswered_request")) {
+    if (
+      getShipmentAlerts(shipment, now, settings).some(
+        (alert) => alert.kind === "unanswered_request",
+      )
+    ) {
       observations.unanswered += 1;
     }
 
@@ -180,34 +185,37 @@ function observe(
       observations.decision.push(shipment.tripLinkedAt.getTime() - requestedMs);
     }
     if (shipment.status !== ShipmentStatus.CANCELLED) {
-      observations.repeatedChanges.push(shipment.changeCount >= repeatedChangeCount);
+      observations.repeatedChanges.push(shipment.changeCount >= settings.repeatedChangeCount);
     }
   }
 }
 
 /** The unanswered count has no sample beyond itself: its `sampleSize` is the count. */
-function valuesOf(observations: Observations): Record<ReviewMetricId, MetricValue> {
+function valuesOf(
+  observations: Observations,
+  settings: MetricSettings,
+): Record<ReviewMetricId, MetricValue> {
   return {
-    idleAfterUnload: medianOf(observations.idleAfterUnload),
-    firstResponse: medianOf(observations.firstResponse),
-    decision: medianOf(observations.decision),
+    idleAfterUnload: medianOf(observations.idleAfterUnload, settings),
+    firstResponse: medianOf(observations.firstResponse, settings),
+    decision: medianOf(observations.decision, settings),
     unanswered: {
       kind: "measured",
       value: observations.unanswered,
       sampleSize: observations.unanswered,
     },
-    repeatedChanges: shareOf(observations.repeatedChanges),
+    repeatedChanges: shareOf(observations.repeatedChanges, settings),
   };
 }
 
-function compare(own: MetricValue, team: MetricValue): DispatcherMetric {
+function compare(own: MetricValue, team: MetricValue, settings: MetricSettings): DispatcherMetric {
   return own.kind === "measured" && team.kind === "measured"
-    ? { ...own, verdict: verdictFor(own.value, team.value) }
+    ? { ...own, verdict: verdictFor(own.value, team.value, settings) }
     : { kind: "insufficient_data", sampleSize: own.sampleSize };
 }
 
 /**
- * Each dispatcher's metrics over the last `reviewWindowDays`, next to the team's. The team
+ * Each dispatcher's metrics over the last `reviewWindowDays` (settings), next to the team's. The team
  * value pools every dispatcher's cases (a median of all gaps, not a median of medians); for
  * the unanswered count it is the average per dispatcher. Derived on every read (ADR 0006).
  */
@@ -215,8 +223,9 @@ export function buildPerformanceReview<TDispatcher extends { id: string }>(
   dispatchers: readonly TDispatcher[],
   shipments: readonly ReviewShipment[],
   now: Date,
+  settings: MetricSettings,
 ): PerformanceReview<TDispatcher> {
-  const windowStart = new Date(now.getTime() - reviewWindowDays * dayMs);
+  const windowStart = reviewWindowStart(now, settings);
   const rows = dispatchers.map((dispatcher) => ({
     dispatcher,
     observations: emptyObservations(),
@@ -226,18 +235,22 @@ export function buildPerformanceReview<TDispatcher extends { id: string }>(
     shipments,
     windowStart,
     now,
+    settings,
   );
 
   const all = rows.map((row) => row.observations);
   const unansweredTotal = all.reduce((sum, o) => sum + o.unanswered, 0);
   const team: Record<ReviewMetricId, MetricValue> = {
-    ...valuesOf({
-      idleAfterUnload: all.flatMap((o) => o.idleAfterUnload),
-      firstResponse: all.flatMap((o) => o.firstResponse),
-      decision: all.flatMap((o) => o.decision),
-      repeatedChanges: all.flatMap((o) => o.repeatedChanges),
-      unanswered: 0,
-    }),
+    ...valuesOf(
+      {
+        idleAfterUnload: all.flatMap((o) => o.idleAfterUnload),
+        firstResponse: all.flatMap((o) => o.firstResponse),
+        decision: all.flatMap((o) => o.decision),
+        repeatedChanges: all.flatMap((o) => o.repeatedChanges),
+        unanswered: 0,
+      },
+      settings,
+    ),
     unanswered:
       rows.length === 0
         ? { kind: "insufficient_data", sampleSize: 0 }
@@ -245,10 +258,11 @@ export function buildPerformanceReview<TDispatcher extends { id: string }>(
   };
 
   return {
+    settings,
     windowStart,
     team,
     dispatchers: rows.map(({ dispatcher, observations }) => {
-      const own = valuesOf(observations);
+      const own = valuesOf(observations, settings);
       return {
         dispatcher,
         openShipmentCount: shipments.filter(
@@ -258,11 +272,11 @@ export function buildPerformanceReview<TDispatcher extends { id: string }>(
             shipment.status !== ShipmentStatus.CANCELLED,
         ).length,
         metrics: {
-          idleAfterUnload: compare(own.idleAfterUnload, team.idleAfterUnload),
-          firstResponse: compare(own.firstResponse, team.firstResponse),
-          decision: compare(own.decision, team.decision),
-          unanswered: compare(own.unanswered, team.unanswered),
-          repeatedChanges: compare(own.repeatedChanges, team.repeatedChanges),
+          idleAfterUnload: compare(own.idleAfterUnload, team.idleAfterUnload, settings),
+          firstResponse: compare(own.firstResponse, team.firstResponse, settings),
+          decision: compare(own.decision, team.decision, settings),
+          unanswered: compare(own.unanswered, team.unanswered, settings),
+          repeatedChanges: compare(own.repeatedChanges, team.repeatedChanges, settings),
         },
       };
     }),
@@ -298,13 +312,15 @@ export const reviewMetricText = {
   unanswered: {
     label: "Válasz nélkül maradt igények",
     short: "Válasz nélkül",
-    definition: `A most nyitott igények, amelyekre ${unansweredRequestAfterHours} órán belül nem ment válasz. A csapatérték a kollégánkénti átlag.`,
+    definition:
+      "A most nyitott igények, amelyekre a beállított időn belül nem ment válasz. A csapatérték a kollégánkénti átlag.",
     sample: null,
   },
   repeatedChanges: {
     label: "Többször módosított fuvarok",
     short: "Módosítások",
-    definition: `Azoknak a fuvaroknak az aránya, amelyeken legalább ${repeatedChangeCount}-szer módosult az időpont vagy egy adat, bárki kérte is.`,
+    definition:
+      "Azoknak a fuvaroknak az aránya, amelyeken legalább a beállított számú alkalommal módosult az időpont vagy egy adat, bárki kérte is.",
     sample: "fuvar",
   },
 } as const satisfies Record<

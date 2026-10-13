@@ -1,12 +1,8 @@
-import { ArrowRight } from "@carbon/icons-react";
 import NextLink from "next/link";
 import { Avatar } from "@/components/avatar";
 import { ScrollIntoView } from "@/components/dispatchers/scroll-into-view";
 import { formatDecimal, formatDuration, formatShare } from "@/lib/format";
 import {
-  minMedianSample,
-  minShareSample,
-  onParTolerance,
   reviewMetricIds,
   reviewMetricText,
   reviewMetricUnit,
@@ -203,21 +199,36 @@ function DispatcherCard({
               includeCancelled: false,
             },
           })}
-          className="group inline-flex w-fit items-center gap-1.5 text-sm font-medium text-link-primary focus-visible:outline-2 focus-visible:outline-focus"
+          className="text-sm font-medium text-link-primary underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-focus"
         >
           {openShipmentCount} nyitott fuvar a Fuvarok nézetben
-          <ArrowRight
-            size={16}
-            aria-hidden="true"
-            className="transition-transform group-hover:translate-x-0.5"
-          />
         </NextLink>
       </div>
     </section>
   );
 }
 
-/** How to read the scales, once for every card. */
+/** What the page covers and how to read the scales, once for every card. */
+function ReviewIntro({ windowDays }: { windowDays: number }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-sm text-text-secondary">
+        Az elmúlt {windowDays} nap kollégánként, a csapathoz mérve. Hogy mi mit jelent, és mikortól
+        számít valami erősségnek, a{" "}
+        <NextLink
+          href="/dispatchers/metrics"
+          className="text-link-primary underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
+        >
+          Mérőszámok
+        </NextLink>{" "}
+        oldalon látod és állítod.
+      </p>
+      <ScaleLegend />
+    </div>
+  );
+}
+
+/** How to read the scales. */
 function ScaleLegend() {
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-text-secondary">
@@ -249,7 +260,7 @@ export function PerformanceReview({
 }) {
   return (
     <>
-      <ScaleLegend />
+      <ReviewIntro windowDays={review.settings.reviewWindowDays} />
       <div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
         {review.dispatchers.map((dispatcherReview) => (
           <DispatcherCard
@@ -261,24 +272,6 @@ export function PerformanceReview({
           />
         ))}
       </div>
-      <section aria-labelledby="review-definitions" className="flex max-w-3xl flex-col gap-3">
-        <h2 id="review-definitions" className="text-base font-semibold">
-          Hogyan számolunk
-        </h2>
-        <dl className="flex flex-col gap-3 text-sm">
-          {reviewMetricIds.map((id) => (
-            <div key={id} className="flex flex-col gap-0.5">
-              <dt className="font-medium">{reviewMetricText[id].label}</dt>
-              <dd className="text-text-secondary">{reviewMetricText[id].definition}</dd>
-            </div>
-          ))}
-        </dl>
-        <p className="text-sm text-text-secondary">
-          Erősség, ha a kolléga értéke legalább {formatShare(onParTolerance)}-kal jobb a csapaténál,
-          fejlesztendő, ha legalább ennyivel rosszabb. A medián legalább {minMedianSample}, az arány
-          legalább {minShareSample} esetből számol.
-        </p>
-      </section>
     </>
   );
 }

@@ -1,10 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { ShipmentStatus } from "@/generated/prisma/enums";
 import { buildPerformanceReview, verdictFor, type ReviewShipment } from "@/lib/performance/review";
+import type { MetricSettings } from "@/lib/performance/settings";
 
 const now = new Date("2026-10-13T10:00:00Z");
 const hourMs = 3_600_000;
 const hoursFromNow = (hours: number) => new Date(now.getTime() + hours * hourMs);
+
+const settings: MetricSettings = {
+  reviewWindowDays: 30,
+  unansweredAfterMinutes: 120,
+  onTimeToleranceMinutes: 30,
+  repeatedChangeCount: 2,
+  onParTolerancePercent: 15,
+  minMedianSample: 3,
+  minShareSample: 5,
+};
 
 const anna = { id: "anna" };
 const bence = { id: "bence" };
@@ -37,15 +48,15 @@ function answered(dispatcherId: string, hours: number) {
 
 describe("verdictFor", () => {
   it("treats lower as better, with 15% either side counting as on par", () => {
-    expect(verdictFor(85, 100)).toBe("strength");
-    expect(verdictFor(90, 100)).toBe("on_par");
-    expect(verdictFor(114, 100)).toBe("on_par");
-    expect(verdictFor(115, 100)).toBe("needs_work");
+    expect(verdictFor(85, 100, settings)).toBe("strength");
+    expect(verdictFor(90, 100, settings)).toBe("on_par");
+    expect(verdictFor(114, 100, settings)).toBe("on_par");
+    expect(verdictFor(115, 100, settings)).toBe("needs_work");
   });
 
   it("only flags a value above a team value of zero", () => {
-    expect(verdictFor(0, 0)).toBe("on_par");
-    expect(verdictFor(1, 0)).toBe("needs_work");
+    expect(verdictFor(0, 0, settings)).toBe("on_par");
+    expect(verdictFor(1, 0, settings)).toBe("needs_work");
   });
 });
 
@@ -57,6 +68,7 @@ describe("buildPerformanceReview", () => {
         .map((hours) => answered(anna.id, hours))
         .concat([3, 3, 3].map((hours) => answered(bence.id, hours))),
       now,
+      settings,
     );
 
     expect(review.team.firstResponse).toEqual({
@@ -75,6 +87,7 @@ describe("buildPerformanceReview", () => {
       [anna, bence],
       [answered(anna.id, 1), answered(anna.id, 2), ...[1, 2, 3].map((h) => answered(bence.id, h))],
       now,
+      settings,
     );
 
     expect(review.dispatchers[0].metrics.firstResponse).toEqual({
@@ -88,7 +101,7 @@ describe("buildPerformanceReview", () => {
       requestedAt: hoursFromNow(-31 * 24),
       firstResponseAt: hoursFromNow(-31 * 24 + 9),
     });
-    const review = buildPerformanceReview([anna], [old], now);
+    const review = buildPerformanceReview([anna], [old], now, settings);
 
     expect(review.team.firstResponse).toEqual({ kind: "insufficient_data", sampleSize: 0 });
   });
@@ -118,6 +131,7 @@ describe("buildPerformanceReview", () => {
         shipment({ vehicleId: "t3", pickupAt: hoursFromNow(-99) }),
       ],
       now,
+      settings,
     );
 
     expect(review.dispatchers[0].metrics.idleAfterUnload).toMatchObject({
@@ -139,6 +153,7 @@ describe("buildPerformanceReview", () => {
         }),
       ],
       now,
+      settings,
     );
 
     expect(review.team.idleAfterUnload).toEqual({ kind: "insufficient_data", sampleSize: 0 });
@@ -152,6 +167,7 @@ describe("buildPerformanceReview", () => {
         shipment({ status: ShipmentStatus.UNHANDLED, requestedAt: hoursFromNow(-1) }),
       ],
       now,
+      settings,
     );
 
     expect(review.team.unanswered).toEqual({ kind: "measured", value: 0.5, sampleSize: 1 });
@@ -173,6 +189,7 @@ describe("buildPerformanceReview", () => {
         shipment({ status: ShipmentStatus.CANCELLED, changeCount: 5 }),
       ],
       now,
+      settings,
     );
 
     expect(review.team.repeatedChanges).toEqual({ kind: "measured", value: 0.4, sampleSize: 5 });
@@ -188,6 +205,7 @@ describe("buildPerformanceReview", () => {
         shipment({ status: ShipmentStatus.CANCELLED }),
       ],
       now,
+      settings,
     );
 
     expect(review.dispatchers[0].openShipmentCount).toBe(2);
