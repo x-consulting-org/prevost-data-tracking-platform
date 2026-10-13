@@ -21,20 +21,26 @@ function Stop({
   at: Date | null;
   now: Date;
 }) {
-  // The city gets the full width; the time sits below it, relative first, then the exact date.
+  // The city gets the full width. Below it the planned time, named, so "3 nap múlva" never has to
+  // be guessed: relative first, then the exact date.
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
       <p className="flex min-w-0 items-center gap-1.5">
-        <span className="sr-only">{label}: </span>
         <span className="truncate font-semibold" title={city}>
           {city}
         </span>
         <CountryCode code={country} />
       </p>
       {at === null ? (
-        <p className="text-xs text-text-helper">nincs időpont</p>
+        <p className="text-xs text-text-helper">
+          <span className="font-medium text-text-secondary">{label}</span> nincs megadva
+        </p>
       ) : (
-        <p className="truncate text-xs tabular-nums">
+        <p
+          className="truncate text-xs tabular-nums"
+          title={`Tervezett ${label.toLocaleLowerCase("hu-HU")}: ${formatDateTime(at)}`}
+        >
+          <span className="font-medium text-text-secondary">{label}</span>{" "}
           <time dateTime={at.toISOString()}>
             <span className="text-text-secondary">{formatRelative(at, now)}</span>
             <span className="text-text-helper"> · {formatDateTime(at)}</span>
