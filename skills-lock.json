@@ -97,12 +97,6 @@
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
       "computedHash": "ac2c94885f34ff8492dc12aa4543182f661f32ea1722b8d6b6c2c7045af33ae3"
     },
-    "migrate-radix-to-base": {
-      "source": "shadcn-ui/ui",
-      "sourceType": "github",
-      "skillPath": "skills/migrate-radix-to-base/SKILL.md",
-      "computedHash": "e1f2030ee5059be3dff0812ca0e4b995ee9fa3132176f049ebe6c90346a6755e"
-    },
     "migrate-v8-to-v9": {
       "source": "tanstack/table",
       "sourceType": "github",
@@ -247,12 +241,6 @@
       "skillPath": "skills/review-animations/SKILL.md",
       "computedHash": "b4e5f0f4fe3e2743c85bf7354108f48a0b9d502cb20ef5c4a9c195da91f93736"
     },
-    "shadcn": {
-      "source": "shadcn-ui/ui",
-      "sourceType": "github",
-      "skillPath": "skills/shadcn/SKILL.md",
-      "computedHash": "da388f632cd83783c02967446e21941c9ee8291ccb43ba74c23f7d4e9b7c298c"
-    },
     "table-features": {
       "source": "tanstack/table",
       "sourceType": "github",
@@ -264,12 +252,6 @@
       "sourceType": "github",
       "skillPath": "packages/alpine-table/skills/table-state/SKILL.md",
       "computedHash": "6d7f37af8ae66ea95aa87dbb4b0829903e049b42dfb7abe8f9fd4f1addb04232"
-    },
-    "tailwind-v4-shadcn": {
-      "source": "secondsky/claude-skills",
-      "sourceType": "github",
-      "skillPath": "plugins/tailwind-v4-shadcn/skills/tailwind-v4-shadcn/SKILL.md",
-      "computedHash": "f671120a57119a94f8a6447a760629878b8ead36750297697006136dbaac4355"
     },
     "tanstack-query": {
       "source": "pymodel/react-frontend-skills",

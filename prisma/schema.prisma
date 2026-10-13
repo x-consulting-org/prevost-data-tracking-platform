@@ -74,3 +74,149 @@ model Verification {
   @@index([identifier])
   @@map("verification")
 }
+
+enum ShipmentStatus {
+  UNHANDLED
+  ORGANIZING
+  IN_TRANSIT
+  COMPLETED
+  CANCELLED
+}
+
+enum ShipmentEventType {
+  REQUEST_RECEIVED
+  /// A dispatcher's reply to the customer. The first one is the shipment's first response.
+  RESPONSE_SENT
+  STATUS_CHANGED
+  SCHEDULE_CHANGED
+  DETAILS_CHANGED
+  TRIP_LINKED
+  /// T-Port reports the truck loaded: the actual pickup, next to the planned `pickupAt`.
+  PICKED_UP
+  /// T-Port reports the truck unloaded: the actual delivery, next to the planned `deliveryAt`.
+  DELIVERED
+}
+
+/// Where a fact came from. The demo seed uses the same values ingestion will.
+enum DataSource {
+  EMAIL
+  TPORT
+  MANUAL
+}
+
+model Dispatcher {
+  id        String     @id @default(uuid(7))
+  name      String
+  /// The mailbox requests arrive in; ingestion matches emails to dispatchers by it.
+  mailbox   String     @unique
+  shipments Shipment[]
+
+  @@map("dispatcher")
+}
+
+/// A truck as T-Port knows it. Shipments on the same vehicle follow each other.
+model Vehicle {
+  id        String     @id @default(uuid(7))
+  /// Registration plate, e.g. "PRV-412".
+  plate     String     @unique
+  shipments Shipment[]
+
+  @@map("vehicle")
+}
+
+model Customer {
+  id        String     @id @default(uuid(7))
+  name      String
+  shipments Shipment[]
+
+  @@map("customer")
+}
+
+model Shipment {
+  id                  String          @id @default(uuid(7))
+  /// Human-readable reference shown in the UI, e.g. "PRV-2026-0142".
+  reference           String          @unique
+  status              ShipmentStatus
+  statusChangedAt     DateTime
+  /// When the request arrived (first email), not when the row was inserted.
+  requestedAt         DateTime
+  dispatcherId        String
+  dispatcher          Dispatcher      @relation(fields: [dispatcherId], references: [id])
+  customerId          String
+  customer            Customer        @relation(fields: [customerId], references: [id])
+  /// Null until the shipment is matched to a T-Port trip.
+  tportTripId         String?         @unique
+  /// The truck of the T-Port trip; null while no trip is linked.
+  vehicleId           String?
+  vehicle             Vehicle?        @relation(fields: [vehicleId], references: [id])
+  originCity          String
+  originCountry       String          @db.Char(2)
+  destinationCity     String
+  destinationCountry  String          @db.Char(2)
+  /// Null means the request did not state it yet; the UI shows it as missing.
+  pickupAt            DateTime?
+  deliveryAt          DateTime?
+  cargoDescription    String?
+  specialRequirements String?
+  events              ShipmentEvent[]
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([status, pickupAt])
+  /// The boards' "closed within the last days" condition.
+  @@index([status, statusChangedAt])
+  @@index([dispatcherId, status])
+  @@index([customerId])
+  /// A vehicle's shipments, to find its next pickup after an unload.
+  @@index([vehicleId, pickupAt])
+  /// The review window: shipments requested in the last days.
+  @@index([requestedAt])
+  @@map("shipment")
+}
+
+/// Business fact on a shipment's timeline. Not a user-action audit log.
+model ShipmentEvent {
+  id         String            @id @default(uuid(7))
+  shipmentId String
+  shipment   Shipment          @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  type       ShipmentEventType
+  source     DataSource
+  /// Controlled business fact, e.g. "Felrakás időpontja módosult: okt. 14. 08:00".
+  summary    String
+  occurredAt DateTime
+  createdAt  DateTime          @default(now())
+
+  @@index([shipmentId, occurredAt])
+  @@map("shipment_event")
+}
+
+/// Last successful load per external source. No row means the source was never synced.
+model SourceSync {
+  source       DataSource @id
+  lastSyncedAt DateTime
+
+  @@map("source_sync")
+}
+
+/// The thresholds of the alerts, the shipment cards and the performance review, edited on the
+/// Mérőszámok page. Exactly one row (id 1): the migration inserts it and a CHECK keeps it single.
+model MetricSettings {
+  id                     Int      @id @default(1)
+  /// The review looks back this many days.
+  reviewWindowDays       Int
+  /// An unhandled request alerts, and counts as unanswered, from this many minutes.
+  unansweredAfterMinutes Int
+  /// A pickup or delivery this many minutes after plan still counts as on time.
+  onTimeToleranceMinutes Int
+  /// A shipment counts as repeatedly changed from this many schedule or detail changes.
+  repeatedChangeCount    Int
+  /// Within this percentage of the team value a colleague is on par.
+  onParTolerancePercent  Int
+  /// A median needs at least this many cases, a share at least `minShareSample`.
+  minMedianSample        Int
+  minShareSample         Int
+  /// Optimistic concurrency: a save names the version it edited.
+  updatedAt              DateTime @updatedAt
+
+  @@map("metric_settings")
+}
