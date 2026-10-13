@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { ShipmentStatus } from "@/generated/prisma/enums";
-import { buildPerformanceReview, verdictFor, type ReviewShipment } from "@/lib/performance/review";
+import {
+  buildPerformanceReview,
+  summarizeReview,
+  verdictFor,
+  type ReviewShipment,
+} from "@/lib/performance/review";
 import type { MetricSettings } from "@/lib/performance/settings";
 
 const now = new Date("2026-10-13T10:00:00Z");
@@ -209,5 +214,29 @@ describe("buildPerformanceReview", () => {
     );
 
     expect(review.dispatchers[0].openShipmentCount).toBe(2);
+  });
+});
+
+describe("summarizeReview", () => {
+  it("counts verdicts, missing values and the team totals", () => {
+    const review = buildPerformanceReview(
+      [anna, bence],
+      [1, 1, 1]
+        .map((hours) => answered(anna.id, hours))
+        .concat([3, 3, 3].map((hours) => answered(bence.id, hours))),
+      now,
+      settings,
+    );
+
+    expect(summarizeReview(review)).toEqual({
+      // First response: anna a strength, bence needs work. Unanswered: both 0, on par. No
+      // unloads or trips, and three requests each is under the share sample of five; the
+      // team's six are not, and none of them changed.
+      verdicts: { strength: 1, on_par: 2, needs_work: 1 },
+      insufficient: 6,
+      unanswered: 0,
+      shipmentsInWindow: 6,
+      repeatedChangeShare: 0,
+    });
   });
 });

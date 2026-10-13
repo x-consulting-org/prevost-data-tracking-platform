@@ -13,7 +13,7 @@ export function DispatcherLink({
 }) {
   return (
     <NextLink
-      href={dispatchersHref(dispatcher.id)}
+      href={dispatchersHref({ view: "people", dispatcherId: dispatcher.id })}
       aria-label={`${dispatcher.name}: kolléga fuvarjai`}
       className={`inline-flex w-fit max-w-full items-center gap-1.5 rounded-full py-0.5 pr-2 pl-0.5 text-xs font-medium text-text-secondary transition-colors hover:bg-layer-hover hover:text-text-primary focus-visible:outline-2 focus-visible:outline-focus ${className ?? ""}`}
     >

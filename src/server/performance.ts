@@ -8,9 +8,9 @@ import {
   type PerformanceReview,
   type ReviewShipment,
 } from "@/lib/performance/review";
+import type { MetricSettings } from "@/lib/performance/settings";
 import { prisma } from "@/lib/prisma";
 import { milestoneEventTypes, milestonesOf } from "@/lib/shipments/milestones";
-import { findMetricSettings } from "@/server/metric-settings";
 import { findDispatchers, type DispatcherSummary } from "@/server/shipments";
 
 const changeEventTypes = [ShipmentEventType.SCHEDULE_CHANGED, ShipmentEventType.DETAILS_CHANGED];
@@ -41,13 +41,12 @@ function toReviewShipment({ events, _count, ...shipment }: ReviewShipmentRow): R
 /**
  * Everything the review window touches: shipments requested, planned to be picked up or
  * unloaded in it (an unload's next pickup is always later, so it is in the window too) and every
- * open shipment.
+ * open shipment. `settings` are the stored ones, or a draft the Mérőszámok page previews.
  */
 export async function findPerformanceReview(
   now: Date,
+  settings: MetricSettings,
 ): Promise<PerformanceReview<DispatcherSummary>> {
-  // The settings decide the window, so they are read first.
-  const { settings } = await findMetricSettings();
   const windowStart = reviewWindowStart(now, settings);
   const [dispatchers, shipments] = await Promise.all([
     findDispatchers(),

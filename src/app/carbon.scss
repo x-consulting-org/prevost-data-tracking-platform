@@ -81,6 +81,9 @@ $-radius-surface: 0.875rem;
         interactive: $-accent,
         focus: $-focus,
         support-error: $-error,
+        background-inverse: var(--color-onyx-900),
+        support-success: var(--color-forest-moss-700),
+        notification-background-success: var(--color-forest-moss-50),
         text-error: var(--color-attention-ink),
         skeleton-background: $-surface-hover,
         skeleton-element: $-line,
@@ -99,6 +102,19 @@ $-radius-surface: 0.875rem;
   $button-primary-active: (
     fallback: $-primary-active,
     values: [(theme: themes.$g10, value: $-primary-active)],
+  ),
+  // Secondary actions (Mérőszámok): an onyx outline that fills with onyx on hover.
+  $button-tertiary: (
+      fallback: $-ink,
+      values: [(theme: themes.$g10, value: $-ink)],
+    ),
+  $button-tertiary-hover: (
+    fallback: $-ink,
+    values: [(theme: themes.$g10, value: $-ink)],
+  ),
+  $button-tertiary-active: (
+    fallback: $-shadow,
+    values: [(theme: themes.$g10, value: $-shadow)],
   )
 );
 
@@ -122,6 +138,7 @@ $-radius-surface: 0.875rem;
   .cds--btn,
   .cds--btn::before,
   .cds--notification,
+  .cds--toast-notification,
   .cds--skeleton__placeholder {
     border-radius: $-radius-control;
   }

@@ -333,3 +333,39 @@ export const verdictLabel = {
   on_par: "Csapatszinten",
   needs_work: "Fejlesztendő",
 } as const satisfies Record<Verdict, string>;
+
+/** The whole review in a few numbers: what the Mérőszámok page shows a rule change would do. */
+export type ReviewSummary = {
+  verdicts: Record<Verdict, number>;
+  /** Dispatcher metrics left without a value for lack of data. */
+  insufficient: number;
+  /** Requests open now without a reply past the threshold, across the team. */
+  unanswered: number;
+  /** Shipments requested in the window, not cancelled: the sample of the change share. */
+  shipmentsInWindow: number;
+  /** The team's share of repeatedly changed shipments; null without enough data. */
+  repeatedChangeShare: number | null;
+};
+
+export function summarizeReview<TDispatcher>(
+  review: PerformanceReview<TDispatcher>,
+): ReviewSummary {
+  const metrics = review.dispatchers.flatMap(({ metrics }) =>
+    reviewMetricIds.map((id) => metrics[id]),
+  );
+  const count = (verdict: Verdict) =>
+    metrics.filter((metric) => metric.kind === "measured" && metric.verdict === verdict).length;
+  const { unanswered, repeatedChanges } = review.team;
+
+  return {
+    verdicts: {
+      strength: count("strength"),
+      on_par: count("on_par"),
+      needs_work: count("needs_work"),
+    },
+    insufficient: metrics.filter((metric) => metric.kind === "insufficient_data").length,
+    unanswered: unanswered.sampleSize,
+    shipmentsInWindow: repeatedChanges.sampleSize,
+    repeatedChangeShare: repeatedChanges.kind === "measured" ? repeatedChanges.value : null,
+  };
+}
