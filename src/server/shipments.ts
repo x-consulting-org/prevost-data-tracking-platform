@@ -137,6 +137,26 @@ function boardWhere(filter: ShipmentFilter, now: Date): Prisma.ShipmentWhereInpu
 }
 
 /**
+ * The actual pickups of the unloaded vehicles from their earliest unload on: `truckTurnaround`
+ * only looks at pickups after an unload, so the trucks' older history is never read.
+ */
+function findPickupsSince(unloads: readonly { vehicleId: string; unloadedAt: Date }[]) {
+  const earliestUnloadMs = unloads.reduce(
+    (earliest, { unloadedAt }) => Math.min(earliest, unloadedAt.getTime()),
+    Infinity,
+  );
+  return prisma.shipmentEvent.findMany({
+    where: {
+      type: ShipmentEventType.PICKED_UP,
+      occurredAt: { gte: new Date(earliestUnloadMs) },
+      shipment: { vehicleId: { in: [...new Set(unloads.map(({ vehicleId }) => vehicleId))] } },
+    },
+    select: { occurredAt: true, shipment: { select: { vehicleId: true } } },
+    orderBy: [{ occurredAt: "asc" }, { id: "asc" }],
+  });
+}
+
+/**
  * Adds what is derived from the current time and the events. A delivered shipment's truck is
  * followed to its next actual pickup, which may belong to a shipment outside `shipments`.
  */
@@ -149,24 +169,12 @@ async function withDerived<TShipment extends ShipmentCardRow>(
     shipment,
     milestones: milestonesOf(shipment.events),
   }));
-  const unloadedVehicleIds = [
-    ...new Set(
-      withMilestones.flatMap(({ shipment, milestones }) =>
-        shipment.vehicleId !== null && milestones.deliveredAt !== null ? [shipment.vehicleId] : [],
-      ),
-    ),
-  ];
-  const pickups =
-    unloadedVehicleIds.length === 0
-      ? []
-      : await prisma.shipmentEvent.findMany({
-          where: {
-            type: ShipmentEventType.PICKED_UP,
-            shipment: { vehicleId: { in: unloadedVehicleIds } },
-          },
-          select: { occurredAt: true, shipment: { select: { vehicleId: true } } },
-          orderBy: [{ occurredAt: "asc" }, { id: "asc" }],
-        });
+  const unloads = withMilestones.flatMap(({ shipment, milestones }) =>
+    shipment.vehicleId !== null && milestones.deliveredAt !== null
+      ? [{ vehicleId: shipment.vehicleId, unloadedAt: milestones.deliveredAt }]
+      : [],
+  );
+  const pickups = unloads.length === 0 ? [] : await findPickupsSince(unloads);
   const pickupsOf = pickupsByVehicle(
     pickups.map((pickup) => ({
       vehicleId: pickup.shipment.vehicleId,

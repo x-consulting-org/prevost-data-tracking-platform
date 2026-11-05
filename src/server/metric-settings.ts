@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import type { Prisma } from "@/generated/prisma/client";
 import type { MetricSettings, MetricSettingsUpdateResult } from "@/lib/performance/settings";
 import { prisma } from "@/lib/prisma";
@@ -19,13 +20,17 @@ const settingsSelect = {
 
 type StoredMetricSettings = { settings: MetricSettings; updatedAt: Date };
 
-export async function findMetricSettings(): Promise<StoredMetricSettings> {
+/**
+ * Read once per request: the board and the shipment detail render together and use the same
+ * thresholds. A save is seen by the next request, which is the one its refresh makes.
+ */
+export const findMetricSettings = cache(async (): Promise<StoredMetricSettings> => {
   const { updatedAt, ...settings } = await prisma.metricSettings.findUniqueOrThrow({
     where: settingsRow,
     select: { ...settingsSelect, updatedAt: true },
   });
   return { settings, updatedAt };
-}
+});
 
 /**
  * Writes only if nobody saved since `expectedUpdatedAt`, in one conditional statement, so of two
