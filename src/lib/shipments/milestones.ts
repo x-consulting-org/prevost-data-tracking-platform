@@ -1,0 +1,116 @@
+import { ShipmentEventType } from "@/generated/prisma/enums";
+
+/**
+ * Events that mark a step of a shipment. The performance review measures the time between them,
+ * and the cards show the same moments, so both read them through `milestonesOf`.
+ */
+export const milestoneEventTypes = [
+  ShipmentEventType.RESPONSE_SENT,
+  ShipmentEventType.TRIP_LINKED,
+  ShipmentEventType.PICKED_UP,
+  ShipmentEventType.DELIVERED,
+] as const satisfies readonly ShipmentEventType[];
+
+/** When each step first happened; null while it has not. */
+export type ShipmentMilestones = {
+  firstResponseAt: Date | null;
+  tripLinkedAt: Date | null;
+  pickedUpAt: Date | null;
+  deliveredAt: Date | null;
+};
+
+/** `events` oldest first, as the read models order them. */
+export function milestonesOf(
+  events: readonly { type: ShipmentEventType; occurredAt: Date }[],
+): ShipmentMilestones {
+  const first = (type: ShipmentEventType) =>
+    events.find((event) => event.type === type)?.occurredAt ?? null;
+
+  return {
+    firstResponseAt: first(ShipmentEventType.RESPONSE_SENT),
+    tripLinkedAt: first(ShipmentEventType.TRIP_LINKED),
+    pickedUpAt: first(ShipmentEventType.PICKED_UP),
+    deliveredAt: first(ShipmentEventType.DELIVERED),
+  };
+}
+
+/** A pickup or delivery: the plan next to what T-Port reported. */
+export type StopTiming =
+  | { kind: "unplanned" }
+  | { kind: "upcoming"; plannedAt: Date }
+  /** The planned time has passed by more than `toleranceMs` and T-Port reported nothing. */
+  | { kind: "overdue"; plannedAt: Date; overdueMs: number }
+  /** Done. `delayMs` is null when there was no plan to compare with; negative means early. */
+  | { kind: "done"; actualAt: Date; plannedAt: Date | null; delayMs: number | null };
+
+/** `toleranceMs`: how long after plan still counts as on time (`onTimeToleranceMs(settings)`). */
+export function stopTiming(
+  plannedAt: Date | null,
+  actualAt: Date | null,
+  now: Date,
+  toleranceMs: number,
+): StopTiming {
+  if (actualAt !== null) {
+    return {
+      kind: "done",
+      actualAt,
+      plannedAt,
+      delayMs: plannedAt === null ? null : actualAt.getTime() - plannedAt.getTime(),
+    };
+  }
+  if (plannedAt === null) return { kind: "unplanned" };
+  const overdueMs = now.getTime() - plannedAt.getTime();
+  return overdueMs > toleranceMs
+    ? { kind: "overdue", plannedAt, overdueMs }
+    : { kind: "upcoming", plannedAt };
+}
+
+export function isLate(delayMs: number | null, toleranceMs: number): boolean {
+  return delayMs !== null && delayMs > toleranceMs;
+}
+
+/** The earliest pickup at or after `unloadedAt`, from the vehicle's pickups oldest first. */
+function nextPickupAfter(unloadedAt: Date, pickups: readonly Date[]): Date | null {
+  return pickups.find((pickup) => pickup >= unloadedAt) ?? null;
+}
+
+/** What became of the truck after this shipment unloaded it. */
+export type TruckTurnaround =
+  | { kind: "not_unloaded" }
+  /** No vehicle is known for the trip, so there is nothing to follow. */
+  | { kind: "no_vehicle"; unloadedAt: Date }
+  | { kind: "waiting"; unloadedAt: Date }
+  | { kind: "reloaded"; unloadedAt: Date; nextPickupAt: Date };
+
+export function truckTurnaround(
+  deliveredAt: Date | null,
+  vehicleId: string | null,
+  pickupsByVehicle: ReadonlyMap<string, readonly Date[]>,
+): TruckTurnaround {
+  if (deliveredAt === null) return { kind: "not_unloaded" };
+  if (vehicleId === null) return { kind: "no_vehicle", unloadedAt: deliveredAt };
+  const nextPickupAt = nextPickupAfter(deliveredAt, pickupsByVehicle.get(vehicleId) ?? []);
+  return nextPickupAt === null
+    ? { kind: "waiting", unloadedAt: deliveredAt }
+    : { kind: "reloaded", unloadedAt: deliveredAt, nextPickupAt };
+}
+
+/** Actual pickups per vehicle, oldest first: the input of `truckTurnaround`. */
+export function pickupsByVehicle(
+  shipments: readonly { vehicleId: string | null; pickedUpAt: Date | null }[],
+): Map<string, Date[]> {
+  const byVehicle = new Map<string, Date[]>();
+  for (const { vehicleId, pickedUpAt } of shipments) {
+    if (vehicleId === null || pickedUpAt === null) continue;
+    const pickups = byVehicle.get(vehicleId);
+    if (pickups === undefined) {
+      byVehicle.set(vehicleId, [pickedUpAt]);
+    } else {
+      pickups.push(pickedUpAt);
+    }
+  }
+  for (const pickups of byVehicle.values()) {
+    pickups.sort((a, b) => a.getTime() - b.getTime());
+  }
+  return byVehicle;
+}

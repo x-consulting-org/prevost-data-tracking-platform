@@ -59,18 +59,29 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    // shadcn/ui (and its companion hooks) are regenerated often — don't block on their idioms.
-    files: ["src/components/ui/**/*.{ts,tsx}", "src/hooks/use-mobile.ts"],
+    // Layer boundary: routes and components reach data only through server actions.
+    // Server read-model types may still be imported as types.
+    files: ["src/app/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}"],
     rules: {
-      eqeqeq: "off",
-      "object-shorthand": "off",
-      "prefer-template": "off",
-      "react/no-danger": "off",
-      "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-non-null-assertion": "off",
-      "@typescript-eslint/consistent-type-imports": "off",
-      "@typescript-eslint/no-import-type-side-effects": "off",
-      "react-hooks/set-state-in-effect": "off",
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            { name: "@/lib/prisma", message: "Query data in src/server/* behind a server action." },
+            {
+              name: "@/generated/prisma/client",
+              message: "Use @/generated/prisma/enums; the Prisma client is server-only.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["@/server/*"],
+              allowTypeImports: true,
+              message: "Call a server action from src/actions/ instead.",
+            },
+          ],
+        },
+      ],
     },
   },
   {
@@ -95,6 +106,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "src/generated/**",
     "pnpm-lock.yaml",
+    // Vendored agent skills, not app code.
+    ".agents/**",
   ]),
 ]);
 
