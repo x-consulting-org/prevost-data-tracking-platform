@@ -9,9 +9,10 @@ import { minuteMs } from "@/lib/time";
 const refreshIntervalMs = minuteMs;
 
 /**
- * Reloads the screen's data every minute while the tab is visible, and right away when the
- * person comes back to it. `renderedAt` is the server's time of the last load; the dot pings
- * each time it changes. No live region: a minutely announcement would only be noise.
+ * Reloads the screen's data once it is a minute old, but only while the tab is visible: a hidden
+ * tab keeps no timer, and one brought back loads again only if its data has aged a minute.
+ * `renderedAt` is the server's time of the last load; the dot pings each time it changes.
+ * No live region: a minutely announcement would only be noise.
  */
 export function LiveRefresh({ renderedAt }: { renderedAt: Date }) {
   const router = useRouter();
@@ -19,18 +20,38 @@ export function LiveRefresh({ renderedAt }: { renderedAt: Date }) {
   const [isRefreshing, startTransition] = useTransition();
 
   useEffect(() => {
+    // The client's clock, so the server's cannot skew it; the page was loaded at mount.
+    let refreshedAt = Date.now();
+    let timer: number | undefined;
+
     function refresh() {
-      if (document.visibilityState !== "visible") return;
+      refreshedAt = Date.now();
       startTransition(() => router.refresh());
       // Client-paged data (the Fuvarok table) is not part of the server render.
       void queryClient.invalidateQueries();
+      scheduleNext();
     }
 
-    const interval = window.setInterval(refresh, refreshIntervalMs);
-    document.addEventListener("visibilitychange", refresh);
+    function scheduleNext() {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(refresh, refreshedAt + refreshIntervalMs - Date.now());
+    }
+
+    function onVisibilityChange() {
+      if (document.visibilityState !== "visible") {
+        window.clearTimeout(timer);
+      } else if (Date.now() - refreshedAt >= refreshIntervalMs) {
+        refresh();
+      } else {
+        scheduleNext();
+      }
+    }
+
+    onVisibilityChange();
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
-      window.clearInterval(interval);
-      document.removeEventListener("visibilitychange", refresh);
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [router, queryClient]);
 
