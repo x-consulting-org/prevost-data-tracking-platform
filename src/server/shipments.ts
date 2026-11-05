@@ -141,7 +141,10 @@ function boardWhere(filter: ShipmentFilter, now: Date): Prisma.ShipmentWhereInpu
  * only looks at pickups after an unload, so the trucks' older history is never read.
  */
 function findPickupsSince(unloads: readonly { vehicleId: string; unloadedAt: Date }[]) {
-  const earliestUnloadMs = Math.min(...unloads.map(({ unloadedAt }) => unloadedAt.getTime()));
+  const earliestUnloadMs = unloads.reduce(
+    (earliest, { unloadedAt }) => Math.min(earliest, unloadedAt.getTime()),
+    Infinity,
+  );
   return prisma.shipmentEvent.findMany({
     where: {
       type: ShipmentEventType.PICKED_UP,
