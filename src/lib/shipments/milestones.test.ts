@@ -80,6 +80,19 @@ describe("truckTurnaround", () => {
     });
   });
 
+  it("finds the next pickup whatever order the pickups came in", () => {
+    const unordered = pickupsByVehicle([
+      { vehicleId: "t1", pickedUpAt: hoursFromNow(-2) },
+      { vehicleId: "t1", pickedUpAt: hoursFromNow(-20) },
+      { vehicleId: "t1", pickedUpAt: hoursFromNow(-6) },
+    ]);
+    expect(truckTurnaround(hoursFromNow(-10), "t1", unordered)).toEqual({
+      kind: "reloaded",
+      unloadedAt: hoursFromNow(-10),
+      nextPickupAt: hoursFromNow(-6),
+    });
+  });
+
   it("says the truck waits when nothing was loaded since", () => {
     expect(truckTurnaround(hoursFromNow(-1), "t1", pickups)).toEqual({
       kind: "waiting",

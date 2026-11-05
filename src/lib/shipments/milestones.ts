@@ -69,10 +69,9 @@ export function isLate(delayMs: number | null, toleranceMs: number): boolean {
   return delayMs !== null && delayMs > toleranceMs;
 }
 
-/** The earliest pickup at or after `unloadedAt`, from the same vehicle's pickups. */
+/** The earliest pickup at or after `unloadedAt`, from the vehicle's pickups oldest first. */
 function nextPickupAfter(unloadedAt: Date, pickups: readonly Date[]): Date | null {
-  const later = pickups.filter((pickup) => pickup >= unloadedAt);
-  return later.length === 0 ? null : new Date(Math.min(...later.map((p) => p.getTime())));
+  return pickups.find((pickup) => pickup >= unloadedAt) ?? null;
 }
 
 /** What became of the truck after this shipment unloaded it. */
@@ -96,14 +95,22 @@ export function truckTurnaround(
     : { kind: "reloaded", unloadedAt: deliveredAt, nextPickupAt };
 }
 
-/** Actual pickups per vehicle, the input of `truckTurnaround`. */
+/** Actual pickups per vehicle, oldest first: the input of `truckTurnaround`. */
 export function pickupsByVehicle(
   shipments: readonly { vehicleId: string | null; pickedUpAt: Date | null }[],
 ): Map<string, Date[]> {
   const byVehicle = new Map<string, Date[]>();
   for (const { vehicleId, pickedUpAt } of shipments) {
     if (vehicleId === null || pickedUpAt === null) continue;
-    byVehicle.set(vehicleId, [...(byVehicle.get(vehicleId) ?? []), pickedUpAt]);
+    const pickups = byVehicle.get(vehicleId);
+    if (pickups === undefined) {
+      byVehicle.set(vehicleId, [pickedUpAt]);
+    } else {
+      pickups.push(pickedUpAt);
+    }
+  }
+  for (const pickups of byVehicle.values()) {
+    pickups.sort((a, b) => a.getTime() - b.getTime());
   }
   return byVehicle;
 }
