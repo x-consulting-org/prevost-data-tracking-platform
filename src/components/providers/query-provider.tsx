@@ -8,8 +8,9 @@ function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 60_000,
-        gcTime: 5 * 60_000,
+        // Matches the shell's reload age (LiveRefresh), so moving between screens reuses fresh data.
+        staleTime: 5 * 60_000,
+        gcTime: 10 * 60_000,
         refetchOnWindowFocus: false,
         retry: 1,
       },
